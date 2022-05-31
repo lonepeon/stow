@@ -59,3 +59,57 @@ func TestPathJoin(t *testing.T) {
 		})
 	}
 }
+
+func TestBase(t *testing.T) {
+	tcs := map[string]struct {
+		path     internal.Path
+		expected internal.Path
+	}{
+		"noFolder": {
+			path:     internal.Path("file"),
+			expected: internal.Path("file"),
+		},
+		"oneFolderDepth": {
+			path:     internal.Path("folder/file"),
+			expected: internal.Path("file"),
+		},
+		"multipleFolderDepth": {
+			path:     internal.Path("folder/subfolder/file"),
+			expected: internal.Path("file"),
+		},
+	}
+
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			internaltest.AssertEqualPath(t, tc.expected, tc.path.Base(), "invalid path")
+		})
+	}
+
+}
+
+func TestDir(t *testing.T) {
+	tcs := map[string]struct {
+		path     internal.Path
+		expected internal.Path
+	}{
+		"noFolder": {
+			path:     internal.Path("file"),
+			expected: internal.Path("."),
+		},
+		"oneFolderDepth": {
+			path:     internal.Path("folder/file"),
+			expected: internal.Path("folder"),
+		},
+		"multipleFolderDepth": {
+			path:     internal.Path("folder/subfolder/file"),
+			expected: internal.Path("folder/subfolder"),
+		},
+	}
+
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			internaltest.AssertEqualPath(t, tc.expected, tc.path.Dir(), "invalid path")
+		})
+	}
+
+}

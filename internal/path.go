@@ -11,4 +11,11 @@ func (p Path) String() string {
 func (p Path) Join(other Path) Path {
 	return Path(path.Join(p.String(), other.String()))
 }
+
+func (p Path) Base() Path {
+	return Path(path.Base(p.String()))
+}
+
+func (p Path) Dir() Path {
+	return Path(path.Dir(p.String()))
 }
