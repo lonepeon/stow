@@ -1,0 +1,22 @@
+linters:
+  enable:
+    - cyclop
+    - depguard
+    - errname
+    - exhaustive
+    - exhaustruct
+    - exportloopref
+    - goconst
+    - gofmt
+
+linters-settings:
+  cyclop:
+    max-complexity: 10
+    package-average: 0.5
+    skip-tests: true
+
+linters-settings:
+  depguard:
+    list-type: allowlist
+    packages:
+      - github.com/lonepeon/stow
