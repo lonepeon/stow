@@ -37,7 +37,7 @@ test: test-unit test-lint
 
 test-unit:
 	@echo "+$@"
-	@$(GO_BIN) test ./...
+	@$(GO_BIN) test -cover ./...
 
 .PHONY: test-lint
 test-lint:
