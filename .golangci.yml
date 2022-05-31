@@ -20,3 +20,4 @@ linters-settings:
     list-type: allowlist
     packages:
       - github.com/lonepeon/stow
+      - github.com/lonepeon/golib
