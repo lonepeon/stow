@@ -60,7 +60,7 @@ func TestPathJoin(t *testing.T) {
 	}
 }
 
-func TestBase(t *testing.T) {
+func TestPathBase(t *testing.T) {
 	tcs := map[string]struct {
 		path     internal.Path
 		expected internal.Path
@@ -87,7 +87,7 @@ func TestBase(t *testing.T) {
 
 }
 
-func TestDir(t *testing.T) {
+func TestPathDir(t *testing.T) {
 	tcs := map[string]struct {
 		path     internal.Path
 		expected internal.Path

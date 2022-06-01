@@ -1,5 +1,7 @@
 package internal
 
+type Walker func(Path, WalkerFunc) error
+
 type Bundle struct {
 	name  string
 	files []Path
@@ -22,4 +24,17 @@ func (b *Bundle) AddFile(p Path) {
 
 func (b *Bundle) Files() []Path {
 	return b.files
+}
+
+func BuildBundle(root Path, bundleName string) (*Bundle, error) {
+	return BuildBundleWithWalker(root, bundleName, WalkFileSystem)
+}
+
+func BuildBundleWithWalker(root Path, bundleName string, walker Walker) (*Bundle, error) {
+	bundle := NewBundle(bundleName)
+
+	bundlePath := root.Join(Path(bundleName))
+	err := walker(bundlePath, func(path Path) { bundle.AddFile(path) })
+
+	return bundle, err
 }
