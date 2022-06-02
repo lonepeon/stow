@@ -1,7 +1,7 @@
 # Stow
 
 Inspired from GNU stow, the goal of this utility is to be able to symlink
-packages (named `bundle`) in target folders. 
+packages in target folders. 
 
 I used to have a `dotup` script which would copy my whole environment but this
 solution is not flexible enough now I have to work with different computers:

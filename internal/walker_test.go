@@ -9,7 +9,7 @@ import (
 )
 
 func TestWalkFileSystem(t *testing.T) {
-	root := internal.Path("testdata/bundle1")
+	root := internal.Path("testdata/package1")
 	var paths []internal.Path
 
 	err := internal.WalkFileSystem(root, func(path internal.Path) {

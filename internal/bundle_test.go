@@ -9,49 +9,49 @@ import (
 	"github.com/lonepeon/stow/internal/internaltest"
 )
 
-func TestBundleName(t *testing.T) {
-	bundle := internal.NewBundle("vim")
-	testutils.AssertEqualString(t, "vim", bundle.Name(), "invalid bundle name")
+func TestPackageName(t *testing.T) {
+	pkg := internal.NewPackage("vim")
+	testutils.AssertEqualString(t, "vim", pkg.Name(), "invalid package name")
 }
 
-func TestBundleFiles(t *testing.T) {
+func TestPackageFiles(t *testing.T) {
 	vimrc := internal.Path(".vim/vimrc")
 	goplugin := internal.Path(".vim/after/ftplugin/go.vim")
 
-	bundle := internal.NewBundle("vim")
-	bundle.AddFile(vimrc)
-	bundle.AddFile(goplugin)
+	pkg := internal.NewPackage("vim")
+	pkg.AddFile(vimrc)
+	pkg.AddFile(goplugin)
 
-	files := bundle.Files()
+	files := pkg.Files()
 	testutils.RequireEqualInt(t, 2, len(files), "invalid file count")
 	internaltest.AssertEqualPath(t, vimrc, files[0], "invalid vimrc file")
 	internaltest.AssertEqualPath(t, goplugin, files[1], "invalid goplugin file")
 }
 
-func TestBuildBundleSuccess(t *testing.T) {
+func TestBuildPackageSuccess(t *testing.T) {
 	vimrc := internal.Path(".vim/vimrc")
 	goplugin := internal.Path(".vim/after/ftplugin/go.vim")
 
 	walker := internaltest.NewWalker(vimrc, goplugin)
-	bundle, err := internal.BuildBundleWithWalker(internal.Path("/home/user"), "vim", walker.Walk)
+	pkg, err := internal.BuildPackageWithWalker(internal.Path("/home/user"), "vim", walker.Walk)
 	testutils.RequireNoError(t, err, "unexpected error")
 
-	testutils.AssertEqualString(t, "vim", bundle.Name(), "invalid bundle name")
+	testutils.AssertEqualString(t, "vim", pkg.Name(), "invalid package name")
 
-	files := bundle.Files()
+	files := pkg.Files()
 	testutils.RequireEqualInt(t, 2, len(files), "invalid file count")
 	internaltest.AssertEqualPath(t, vimrc, files[0], "invalid vimrc file")
 	internaltest.AssertEqualPath(t, goplugin, files[1], "invalid goplugin file")
 }
 
-func TestBuildBundleError(t *testing.T) {
+func TestBuildPackageError(t *testing.T) {
 	vimrc := internal.Path(".vim/vimrc")
 	goplugin := internal.Path(".vim/after/ftplugin/go.vim")
 
 	walker := internaltest.NewWalker(vimrc, goplugin)
 	walker.SetErrorAtIndex(1, errors.New("boom"))
 
-	_, err := internal.BuildBundleWithWalker(internal.Path("/home/user"), "vim", walker.Walk)
+	_, err := internal.BuildPackageWithWalker(internal.Path("/home/user"), "vim", walker.Walk)
 	testutils.RequireHasError(t, err, "expecting error")
 	testutils.AssertContainsString(t, "boom", err.Error(), "invalid error")
 }

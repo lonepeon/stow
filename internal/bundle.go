@@ -2,39 +2,39 @@ package internal
 
 type Walker func(Path, WalkerFunc) error
 
-type Bundle struct {
+type Package struct {
 	name  string
 	files []Path
 }
 
-func NewBundle(name string) *Bundle {
-	return &Bundle{
+func NewPackage(name string) *Package {
+	return &Package{
 		name:  name,
 		files: nil,
 	}
 }
 
-func (b *Bundle) Name() string {
-	return b.name
+func (p *Package) Name() string {
+	return p.name
 }
 
-func (b *Bundle) AddFile(p Path) {
-	b.files = append(b.files, p)
+func (p *Package) AddFile(path Path) {
+	p.files = append(p.files, path)
 }
 
-func (b *Bundle) Files() []Path {
-	return b.files
+func (p *Package) Files() []Path {
+	return p.files
 }
 
-func BuildBundle(root Path, bundleName string) (*Bundle, error) {
-	return BuildBundleWithWalker(root, bundleName, WalkFileSystem)
+func BuildPackage(root Path, pkgName string) (*Package, error) {
+	return BuildPackageWithWalker(root, pkgName, WalkFileSystem)
 }
 
-func BuildBundleWithWalker(root Path, bundleName string, walker Walker) (*Bundle, error) {
-	bundle := NewBundle(bundleName)
+func BuildPackageWithWalker(root Path, pkgName string, walker Walker) (*Package, error) {
+	pkg := NewPackage(pkgName)
 
-	bundlePath := root.Join(Path(bundleName))
-	err := walker(bundlePath, func(path Path) { bundle.AddFile(path) })
+	pkgPath := root.Join(Path(pkgName))
+	err := walker(pkgPath, func(path Path) { pkg.AddFile(path) })
 
-	return bundle, err
+	return pkg, err
 }

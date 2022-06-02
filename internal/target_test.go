@@ -17,12 +17,12 @@ func TestTargetStowSuccess(t *testing.T) {
 	goplugin := internal.Path(".vim/after/ftplugin/go.vim")
 
 	linker := internaltest.NewLinker()
-	bundle := internal.NewBundle("vim")
-	bundle.AddFile(vimrc)
-	bundle.AddFile(goplugin)
+	pkg := internal.NewPackage("vim")
+	pkg.AddFile(vimrc)
+	pkg.AddFile(goplugin)
 
 	target := internal.NewTargetWithLinker(targetPath, linker)
-	err := target.Stow(stowPath, bundle)
+	err := target.Stow(stowPath, pkg)
 	testutils.RequireNoError(t, err, "unexpected error")
 
 	testutils.RequireEqualInt(t, 2, linker.LenLinks(), "invalid number of linked files")
@@ -43,12 +43,12 @@ func TestTargetStowFailButRollback(t *testing.T) {
 	linker := internaltest.NewLinker()
 	linker.SetLinkErrorAtIndex(1, errors.New("boom"))
 
-	bundle := internal.NewBundle("vim")
-	bundle.AddFile(vimrc)
-	bundle.AddFile(goplugin)
+	pkg := internal.NewPackage("vim")
+	pkg.AddFile(vimrc)
+	pkg.AddFile(goplugin)
 
 	target := internal.NewTargetWithLinker(targetPath, linker)
-	err := target.Stow(stowPath, bundle)
+	err := target.Stow(stowPath, pkg)
 	testutils.RequireHasError(t, err, "expecting an error")
 	testutils.AssertContainsString(t, "boom", err.Error(), "invalid string error")
 	testutils.AssertContainsString(t, stowPath.Join(goplugin).String(), err.Error(), "invalid string error")
@@ -74,13 +74,13 @@ func TestTargetStowFailAndRollbackFail(t *testing.T) {
 	linker.SetLinkErrorAtIndex(2, errors.New("boom"))
 	linker.SetUnlinkErrorAtIndex(1, errors.New("bam"))
 
-	bundle := internal.NewBundle("vim")
-	bundle.AddFile(vimrc)
-	bundle.AddFile(goplugin)
-	bundle.AddFile(godetect)
+	pkg := internal.NewPackage("vim")
+	pkg.AddFile(vimrc)
+	pkg.AddFile(goplugin)
+	pkg.AddFile(godetect)
 
 	target := internal.NewTargetWithLinker(targetPath, linker)
-	err := target.Stow(stowPath, bundle)
+	err := target.Stow(stowPath, pkg)
 	testutils.RequireHasError(t, err, "expecting an error")
 	testutils.AssertContainsString(t, "boom", err.Error(), "invalid string error")
 	testutils.AssertContainsString(t, stowPath.Join(godetect).String(), err.Error(), "invalid string error")

@@ -23,13 +23,13 @@ func NewTargetWithLinker(root Path, linker Linker) *Target {
 	return &Target{root: root, linker: linker}
 }
 
-func (t *Target) Stow(srcRoot Path, b *Bundle) error {
-	for i, srcPath := range b.Files() {
+func (t *Target) Stow(srcRoot Path, pkg *Package) error {
+	for i, srcPath := range pkg.Files() {
 		src := srcRoot.Join(srcPath)
 		dest := t.root.Join(srcPath)
 		err := t.linker.Link(src, dest)
 		if err != nil {
-			errRollback := t.rollbackUpto(b, i)
+			errRollback := t.rollbackUpto(pkg, i)
 			if errRollback != nil {
 				return fmt.Errorf("can't link '%s' -> %s: %v. rollback did not succeed: %v", src, dest, err, errRollback)
 			}
@@ -40,7 +40,7 @@ func (t *Target) Stow(srcRoot Path, b *Bundle) error {
 	return nil
 }
 
-func (t *Target) rollbackUpto(b *Bundle, index int) error {
+func (t *Target) rollbackUpto(b *Package, index int) error {
 	for i, src := range b.Files() {
 		if i >= index {
 			return nil

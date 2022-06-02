@@ -20,11 +20,11 @@ func TestFileSystemLinkerLink(t *testing.T) {
 		destination internal.Path
 	}{
 		"no-subfolder": {
-			source:      internal.Path("testdata/bundle1/file-1.txt"),
+			source:      internal.Path("testdata/package1/file-1.txt"),
 			destination: destFolderPath.Join(internal.Path("file-1.txt")),
 		},
 		"with-subfolder": {
-			source:      internal.Path("testdata/bundle1/subfolder/file-3.txt"),
+			source:      internal.Path("testdata/package1/subfolder/file-3.txt"),
 			destination: destFolderPath.Join(internal.Path("subfolder/file-3.txt")),
 		},
 	}
@@ -50,7 +50,7 @@ func TestFileSystemLinkerUnlink(t *testing.T) {
 
 	destFolderPath := internal.Path(destFolder)
 
-	source := internal.Path("testdata/bundle1/file-1.txt")
+	source := internal.Path("testdata/package1/file-1.txt")
 	destination := destFolderPath.Join(internal.Path("file-1.txt"))
 
 	fs := internal.NewFileSystemLinker()
