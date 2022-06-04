@@ -71,3 +71,12 @@ func (l FileSystemLinker) overwriteSymlink(src Path, dest Path) error {
 
 	return os.Symlink(src.String(), dest.String())
 }
+
+func (l FileSystemLinker) ReadLink(path Path) (Path, error) {
+	dest, err := os.Readlink(path.String())
+	if err != nil {
+		return Path(""), fmt.Errorf("can't read link: %w: %v", ErrLinkNotExist, err)
+	}
+
+	return Path(dest), nil
+}

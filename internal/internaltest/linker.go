@@ -1,6 +1,8 @@
 package internaltest
 
-import "github.com/lonepeon/stow/internal"
+import (
+	"github.com/lonepeon/stow/internal"
+)
 
 type Link struct {
 	Source      internal.Path
@@ -11,6 +13,10 @@ type Linker struct {
 	linkErrAtIndex int
 	linkErr        error
 	links          []Link
+
+	readlinkErrAtIndex int
+	readlinkErr        error
+	readlinks          []Link
 
 	unlinkErrAtIndex int
 	unlinkErr        error
@@ -23,6 +29,10 @@ func NewLinker() *Linker {
 		linkErr:        nil,
 		links:          nil,
 
+		readlinkErrAtIndex: -1,
+		readlinkErr:        nil,
+		readlinks:          nil,
+
 		unlinkErrAtIndex: -1,
 		unlinkErr:        nil,
 		unlinks:          nil,
@@ -32,6 +42,18 @@ func NewLinker() *Linker {
 func (l *Linker) SetLinkErrorAtIndex(i int, err error) {
 	l.linkErrAtIndex = i
 	l.linkErr = err
+}
+
+func (l *Linker) SetReadlinkErrorAtIndex(i int, err error) {
+	l.readlinkErrAtIndex = i
+	l.readlinkErr = err
+}
+
+func (l *Linker) RegisterReadLink(src internal.Path, dest internal.Path) {
+	l.readlinks = append(l.readlinks, Link{
+		Source:      src,
+		Destination: dest,
+	})
 }
 
 func (l *Linker) SetUnlinkErrorAtIndex(i int, err error) {
@@ -50,6 +72,22 @@ func (l *Linker) Link(src, dest internal.Path) error {
 	})
 
 	return nil
+}
+
+func (l *Linker) ReadLink(path internal.Path) (internal.Path, error) {
+	for i, link := range l.readlinks {
+		if i == l.readlinkErrAtIndex {
+			return internal.Path(""), l.readlinkErr
+		}
+
+		if link.Destination != path {
+			continue
+		}
+
+		return link.Source, nil
+	}
+
+	return internal.Path(""), internal.ErrLinkNotExist
 }
 
 func (l *Linker) Unlink(path internal.Path) error {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/lonepeon/golib/testutils"
 	"github.com/lonepeon/stow/internal"
+	"github.com/lonepeon/stow/internal/internaltest"
 )
 
 func TestFileSystemLinkerLink(t *testing.T) {
@@ -65,4 +66,32 @@ func TestFileSystemLinkerUnlink(t *testing.T) {
 
 	_, err = os.Lstat(destination.String())
 	testutils.RequireHasError(t, err, "expecting error on destination stat")
+}
+
+func TestFileSystemLinkerReadLink(t *testing.T) {
+	destFolder, err := os.MkdirTemp("", "testreadlink")
+	testutils.RequireNoError(t, err, "can't create temp folder %v", destFolder)
+	defer os.Remove(destFolder)
+
+	file := internal.Path("file-1.txt")
+	source := internal.Path("testdata/package1").Join(file)
+	destination := internal.Path(destFolder).Join(file)
+
+	fs := internal.NewFileSystemLinker()
+	err = fs.Link(source, destination)
+	testutils.RequireNoError(t, err, "unexpected linking error")
+
+	actual, err := fs.ReadLink(destination)
+	testutils.RequireNoError(t, err, "unexpected readlink error")
+
+	internaltest.AssertEqualPath(t, source, actual, "invalid source value")
+}
+
+func TestFileSystemLinkerReadLinkFileNotFound(t *testing.T) {
+	destination := internal.Path("/a/wrong/path/to/file.txt")
+
+	fs := internal.NewFileSystemLinker()
+	_, err := fs.ReadLink(destination)
+	testutils.RequireHasError(t, err, "unexpected readlink error")
+	testutils.AssertErrorIs(t, internal.ErrLinkNotExist, err, "invalid readlink type")
 }
