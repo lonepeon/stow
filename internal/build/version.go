@@ -10,7 +10,7 @@ type Version struct {
 }
 
 var (
-	branch  = "unknown"
+	branch  = "nobranch"
 	commit  = "HEAD"
 	state   = "dirty"
 	version = "unknown"
