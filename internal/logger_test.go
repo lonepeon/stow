@@ -6,7 +6,44 @@ import (
 
 	"github.com/lonepeon/golib/testutils"
 	"github.com/lonepeon/stow/internal"
+	"github.com/lonepeon/stow/internal/internaltest"
 )
+
+func TestNewLoggerVerbositySuccess(t *testing.T) {
+	tcs := map[string]struct {
+		level    int
+		expected internal.LoggerVerbosity
+	}{
+		"whenLevelIs0": {level: 0, expected: internal.LoggerVerbosityError},
+		"whenLevelIs1": {level: 1, expected: internal.LoggerVerbosityInfo},
+		"whenLevelIs2": {level: 2, expected: internal.LoggerVerbosityDebug},
+	}
+
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			actual, err := internal.NewLoggerVerbosity(tc.level)
+			testutils.RequireNoError(t, err, "unexpected error for level %d", tc.level)
+			internaltest.AssertEqualLoggerVerbosity(t, tc.expected, actual, "invalid verbosity level")
+		})
+	}
+}
+
+func TestNewLoggerVerbosityError(t *testing.T) {
+	tcs := map[string]struct {
+		level int
+	}{
+		"whenLevelIsNegative": {level: -5},
+		"whenLevelIsTooHigh":  {level: 42},
+	}
+
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			_, err := internal.NewLoggerVerbosity(tc.level)
+			testutils.RequireHasError(t, err, "expecting an error for level %d", tc.level)
+			testutils.AssertContainsString(t, "invalid level", err.Error(), "invalid error message")
+		})
+	}
+}
 
 func TestLoggerVerbosityAllow(t *testing.T) {
 	tcs := map[string]struct {

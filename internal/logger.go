@@ -7,16 +7,37 @@ import (
 
 type LoggerVerbosity struct {
 	level int
+	name  string
+}
+
+func NewLoggerVerbosity(level int) (LoggerVerbosity, error) {
+	for _, verbosity := range loggerVerbosities {
+		if verbosity.level == level {
+			return verbosity, nil
+		}
+	}
+
+	return LoggerVerbosityError, fmt.Errorf("invalid level %d", level)
 }
 
 func (v LoggerVerbosity) Allow(other LoggerVerbosity) bool {
 	return v.level >= other.level
 }
 
+func (v LoggerVerbosity) String() string {
+	return v.name
+}
+
 var (
-	LoggerVerbosityError = LoggerVerbosity{level: 0}
-	LoggerVerbosityInfo  = LoggerVerbosity{level: 1}
-	LoggerVerbosityDebug = LoggerVerbosity{level: 2}
+	LoggerVerbosityError = LoggerVerbosity{level: 0, name: "error"}
+	LoggerVerbosityInfo  = LoggerVerbosity{level: 1, name: "info"}
+	LoggerVerbosityDebug = LoggerVerbosity{level: 2, name: "debug"}
+
+	loggerVerbosities = []LoggerVerbosity{
+		LoggerVerbosityError,
+		LoggerVerbosityInfo,
+		LoggerVerbosityDebug,
+	}
 )
 
 type Logger struct {

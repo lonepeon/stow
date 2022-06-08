@@ -8,5 +8,7 @@ import (
 )
 
 func AssertEqualPath(t *testing.T, want, got internal.Path, pattern string, args ...interface{}) {
+	t.Helper()
+
 	testutils.AssertEqualString(t, want.String(), got.String(), pattern, args...)
 }
