@@ -27,9 +27,9 @@ func TestTargetStowSuccess(t *testing.T) {
 
 	testutils.RequireEqualInt(t, 2, linker.LenLinks(), "invalid number of linked files")
 	testutils.RequireEqualInt(t, 0, linker.LenUnlinks(), "invalid number of unlinked files")
-	internaltest.AssertEqualPath(t, stowPath.Join(vimrc), linker.GetLink(0).Source, "invalid vimrc source link")
+	internaltest.AssertEqualPath(t, stowPath.Join(internal.Path("vim")).Join(vimrc), linker.GetLink(0).Source, "invalid vimrc source link")
 	internaltest.AssertEqualPath(t, targetPath.Join(vimrc), linker.GetLink(0).Destination, "invalid vimrc destination link")
-	internaltest.AssertEqualPath(t, stowPath.Join(goplugin), linker.GetLink(1).Source, "invalid goplugin source link")
+	internaltest.AssertEqualPath(t, stowPath.Join(internal.Path("vim")).Join(goplugin), linker.GetLink(1).Source, "invalid goplugin source link")
 	internaltest.AssertEqualPath(t, targetPath.Join(goplugin), linker.GetLink(1).Destination, "invalid goplugin destination link")
 }
 
@@ -51,13 +51,13 @@ func TestTargetStowFailButRollback(t *testing.T) {
 	err := target.Stow(stowPath, pkg)
 	testutils.RequireHasError(t, err, "expecting an error")
 	testutils.AssertContainsString(t, "boom", err.Error(), "invalid string error")
-	testutils.AssertContainsString(t, stowPath.Join(goplugin).String(), err.Error(), "invalid string error")
+	testutils.AssertContainsString(t, stowPath.Join(internal.Path("vim")).Join(goplugin).String(), err.Error(), "invalid string error")
 	testutils.AssertContainsString(t, targetPath.Join(goplugin).String(), err.Error(), "invalid string error")
 	testutils.AssertContainsString(t, "rollback succeeded", err.Error(), "invalid string error")
 
 	testutils.RequireEqualInt(t, 1, linker.LenLinks(), "invalid number of linked files")
 	testutils.RequireEqualInt(t, 1, linker.LenUnlinks(), "invalid number of unlinked files")
-	internaltest.AssertEqualPath(t, stowPath.Join(vimrc), linker.GetLink(0).Source, "invalid vimrc source link")
+	internaltest.AssertEqualPath(t, stowPath.Join(internal.Path("vim")).Join(vimrc), linker.GetLink(0).Source, "invalid vimrc source link")
 	internaltest.AssertEqualPath(t, targetPath.Join(vimrc), linker.GetLink(0).Destination, "invalid vimrc destination link")
 	internaltest.AssertEqualPath(t, targetPath.Join(vimrc), linker.GetUnlink(0), "invalid vimrc unlink")
 }
@@ -83,16 +83,16 @@ func TestTargetStowFailAndRollbackFail(t *testing.T) {
 	err := target.Stow(stowPath, pkg)
 	testutils.RequireHasError(t, err, "expecting an error")
 	testutils.AssertContainsString(t, "boom", err.Error(), "invalid string error")
-	testutils.AssertContainsString(t, stowPath.Join(godetect).String(), err.Error(), "invalid string error")
+	testutils.AssertContainsString(t, stowPath.Join(internal.Path("vim")).Join(godetect).String(), err.Error(), "invalid string error")
 	testutils.AssertContainsString(t, targetPath.Join(godetect).String(), err.Error(), "invalid string error")
 	testutils.AssertContainsString(t, "bam", err.Error(), "invalid string error")
 	testutils.AssertContainsString(t, "rollback did not succeed", err.Error(), "invalid string error")
 
 	testutils.RequireEqualInt(t, 2, linker.LenLinks(), "invalid number of linked files")
 	testutils.RequireEqualInt(t, 1, linker.LenUnlinks(), "invalid number of unlinked files")
-	internaltest.AssertEqualPath(t, stowPath.Join(vimrc), linker.GetLink(0).Source, "invalid vimrc source link")
+	internaltest.AssertEqualPath(t, stowPath.Join(internal.Path("vim")).Join(vimrc), linker.GetLink(0).Source, "invalid vimrc source link")
 	internaltest.AssertEqualPath(t, targetPath.Join(vimrc), linker.GetLink(0).Destination, "invalid vimrc destination link")
-	internaltest.AssertEqualPath(t, stowPath.Join(goplugin), linker.GetLink(1).Source, "invalid vimrc source link")
+	internaltest.AssertEqualPath(t, stowPath.Join(internal.Path("vim")).Join(goplugin), linker.GetLink(1).Source, "invalid vimrc source link")
 	internaltest.AssertEqualPath(t, targetPath.Join(goplugin), linker.GetLink(1).Destination, "invalid goplugin destination link")
 	internaltest.AssertEqualPath(t, targetPath.Join(vimrc), linker.GetUnlink(0), "invalid vimrc unlink")
 }

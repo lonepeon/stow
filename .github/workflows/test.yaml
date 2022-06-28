@@ -40,6 +40,8 @@ jobs:
           key: ${{ runner.os }}-ci-tools-v20220315143056
       - name: "assert go version"
         run: ci-tools/assert-version go
+      - name: "install linter"
+        run: make deps
       - name: "run linter"
         run: make test-lint
 

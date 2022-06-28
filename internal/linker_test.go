@@ -32,7 +32,7 @@ func TestFileSystemLinkerLink(t *testing.T) {
 
 	for name, tc := range tcs {
 		t.Run(name, func(t *testing.T) {
-			fs := internal.NewFileSystemLinker()
+			fs := internal.NewFileSystemLinker(internal.NewLocalFileSystemExecutor())
 			err := fs.Link(tc.source, tc.destination)
 			testutils.RequireNoError(t, err, "unexpected linking error")
 
@@ -54,7 +54,7 @@ func TestFileSystemLinkerUnlink(t *testing.T) {
 	source := internal.Path("testdata/package1/file-1.txt")
 	destination := destFolderPath.Join(internal.Path("file-1.txt"))
 
-	fs := internal.NewFileSystemLinker()
+	fs := internal.NewFileSystemLinker(internal.NewLocalFileSystemExecutor())
 	err = fs.Link(source, destination)
 	testutils.RequireNoError(t, err, "unexpected linking error")
 
@@ -77,7 +77,7 @@ func TestFileSystemLinkerReadLink(t *testing.T) {
 	source := internal.Path("testdata/package1").Join(file)
 	destination := internal.Path(destFolder).Join(file)
 
-	fs := internal.NewFileSystemLinker()
+	fs := internal.NewFileSystemLinker(internal.NewLocalFileSystemExecutor())
 	err = fs.Link(source, destination)
 	testutils.RequireNoError(t, err, "unexpected linking error")
 
@@ -90,7 +90,7 @@ func TestFileSystemLinkerReadLink(t *testing.T) {
 func TestFileSystemLinkerReadLinkFileNotFound(t *testing.T) {
 	destination := internal.Path("/a/wrong/path/to/file.txt")
 
-	fs := internal.NewFileSystemLinker()
+	fs := internal.NewFileSystemLinker(internal.NewLocalFileSystemExecutor())
 	_, err := fs.ReadLink(destination)
 	testutils.RequireHasError(t, err, "unexpected readlink error")
 	testutils.AssertErrorIs(t, internal.ErrLinkNotExist, err, "invalid readlink type")

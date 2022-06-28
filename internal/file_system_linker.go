@@ -5,14 +5,16 @@ import (
 	"os"
 )
 
-type FileSystemLinker struct{}
+type FileSystemLinker struct {
+	executor FileSystemExecutor
+}
 
-func NewFileSystemLinker() *FileSystemLinker {
-	return &FileSystemLinker{}
+func NewFileSystemLinker(executor FileSystemExecutor) *FileSystemLinker {
+	return &FileSystemLinker{executor: executor}
 }
 
 func (l FileSystemLinker) Link(src Path, dest Path) error {
-	_, err := os.Stat(src.String())
+	_, err := l.executor.Stat(src)
 	if err != nil {
 		return fmt.Errorf("can't get src information: %v", err)
 	}
@@ -25,8 +27,8 @@ func (l FileSystemLinker) Link(src Path, dest Path) error {
 	return l.overwriteSymlink(src, dest)
 }
 
-func (FileSystemLinker) Unlink(path Path) error {
-	err := os.Remove(path.String())
+func (l FileSystemLinker) Unlink(path Path) error {
+	err := l.executor.Remove(path)
 	if err != nil {
 		return fmt.Errorf("can't remove path link: %v", err)
 	}
@@ -35,7 +37,7 @@ func (FileSystemLinker) Unlink(path Path) error {
 }
 
 func (l FileSystemLinker) mkdirParents(path Path) error {
-	err := os.MkdirAll(path.Dir().String(), 0755)
+	err := l.executor.MkdirAll(path.Dir(), 0755)
 	if err != nil {
 		return fmt.Errorf("can't create parent folders: %v", err)
 	}
@@ -44,7 +46,7 @@ func (l FileSystemLinker) mkdirParents(path Path) error {
 }
 
 func (l FileSystemLinker) fileExists(path Path) (bool, error) {
-	_, err := os.Stat(path.String())
+	_, err := l.executor.Stat(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return false, nil
@@ -63,20 +65,20 @@ func (l FileSystemLinker) overwriteSymlink(src Path, dest Path) error {
 	}
 
 	if destExists {
-		err = os.Remove(dest.String())
+		err = l.executor.Remove(dest)
 		if err != nil {
 			return fmt.Errorf("can't remove existing dest link: %v", err)
 		}
 	}
 
-	return os.Symlink(src.String(), dest.String())
+	return l.executor.Symlink(src, dest)
 }
 
 func (l FileSystemLinker) ReadLink(path Path) (Path, error) {
-	dest, err := os.Readlink(path.String())
+	dest, err := l.executor.Readlink(path)
 	if err != nil {
 		return Path(""), fmt.Errorf("can't read link: %w: %v", ErrLinkNotExist, err)
 	}
 
-	return Path(dest), nil
+	return dest, nil
 }

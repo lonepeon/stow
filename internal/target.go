@@ -52,10 +52,6 @@ type Target struct {
 	linker Linker
 }
 
-func NewTarget(root Path) *Target {
-	return NewTargetWithLinker(root, FileSystemLinker{})
-}
-
 func NewTargetWithLinker(root Path, linker Linker) *Target {
 	return &Target{root: root, linker: linker}
 }
@@ -63,7 +59,7 @@ func NewTargetWithLinker(root Path, linker Linker) *Target {
 func (t *Target) Stow(stowRoot Path, pkg *Package) error {
 	var transaction []TargetLinkTransactionStatement
 	for _, srcPath := range pkg.Files() {
-		src := stowRoot.Join(srcPath)
+		src := stowRoot.Join(Path(pkg.Name())).Join(srcPath)
 		dest := t.root.Join(srcPath)
 
 		err := t.linker.Link(src, dest)
