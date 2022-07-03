@@ -1,0 +1,36 @@
+version: "2.1"
+
+executors:
+  go-executor:
+    docker:
+      image: "cimg/go:1.18.1"
+
+jobs:
+  format-code:
+    executor: "go-executor"
+    steps:
+      - name: "install linter"
+        command: "make deps"
+      - name: "run linter"
+        command: "make test-lint"
+
+  test-code:
+    executor: "go-executor"
+    steps:
+      - name: "run unit tests"
+        command: "make test-unit"
+  deploy:
+    executor: "go-executor"
+    steps:
+      - name: "deploy"
+        command: "echo deployed"
+
+workflows:
+  test-and-deploy:
+    jobs:
+      - format-code
+      - test-code
+      - deploy:
+          requires:
+            - format-code
+            - test-code
