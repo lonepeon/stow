@@ -1,7 +1,7 @@
 BUILD_FOLDER = target
 BUILD_OPTIONS =
 
-OS := darwin
+OS := linux
 ARCH := amd64
 BINARY_NAME := "stow"
 FULL_BINARY_NAME := $(BINARY_NAME)-$(OS)-$(ARCH)

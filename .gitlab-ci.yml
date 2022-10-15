@@ -1,0 +1,20 @@
+image: golang:1.19.2
+
+stages:
+  - test
+
+compile-test-job:
+  stage: test
+  script:
+    - make compile
+
+unit-test-job:
+  stage: test
+  script:
+    - make test-unit
+
+lint-test-job:
+  stage: test
+  script:
+    - make deps
+    - make test-lint
