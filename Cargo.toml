@@ -9,4 +9,4 @@ It helps manage packages individually while still being able to install them in 
 """
 
 [dependencies]
-clap = { version = "4.0.18", features = ["derive"] }
+clap = { version = "4.0.18", features = ["derive", "env"] }
