@@ -2,7 +2,11 @@
 name = "stow"
 version = "0.1.0"
 edition = "2021"
+description = """
+The command line is in charge of symlinking files from different directory in another place.
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+It helps manage packages individually while still being able to install them in a shared file tree.
+"""
 
 [dependencies]
+clap = { version = "4.0.18", features = ["derive"] }
