@@ -1,4 +1,5 @@
 use clap::Parser;
+use stow::path;
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -22,13 +23,18 @@ struct Cli {
     packages: Vec<String>,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+
+    let source_directory = cli.source_directory.parse::<path::Path>()?;
+    let destination_directory = cli.destination_directory.parse::<path::Path>()?;
 
     println!(
         "symlink {} packages from {} onto {}",
         cli.packages.join(", "),
-        cli.source_directory,
-        cli.destination_directory
+        source_directory,
+        destination_directory
     );
+
+    Ok(())
 }
