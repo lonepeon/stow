@@ -3,26 +3,41 @@ use crate::{package, path, Error, LinkingError};
 pub trait Linker {
     fn link(
         &mut self,
-        source: std::path::PathBuf,
-        destination: std::path::PathBuf,
+        source: &std::path::Path,
+        destination: &std::path::Path,
     ) -> Result<(), Error>;
 }
 
-pub struct DryRunLinker<W: std::io::Write> {
-    logger: W,
-}
-impl<W: std::io::Write> DryRunLinker<W> {
-    pub fn new(w: W) -> Self {
-        DryRunLinker { logger: w }
+pub struct NoopLinker;
+
+impl Linker for NoopLinker {
+    fn link(
+        &mut self,
+        _source: &std::path::Path,
+        _destination: &std::path::Path,
+    ) -> Result<(), Error> {
+        Ok(())
     }
 }
 
-impl<W: std::io::Write> Linker for DryRunLinker<W> {
+pub struct VerboseLinker<W: std::io::Write, L: Linker> {
+    logger: W,
+    linker: L,
+}
+impl<W: std::io::Write, L: Linker> VerboseLinker<W, L> {
+    pub fn new(logger: W, linker: L) -> Self {
+        VerboseLinker { logger, linker }
+    }
+}
+
+impl<W: std::io::Write, L: Linker> Linker for VerboseLinker<W, L> {
     fn link(
         &mut self,
-        source: std::path::PathBuf,
-        destination: std::path::PathBuf,
+        source: &std::path::Path,
+        destination: &std::path::Path,
     ) -> Result<(), Error> {
+        self.linker.link(source, destination)?;
+
         writeln!(
             self.logger,
             "ln -s {} {}",
@@ -39,14 +54,13 @@ impl<W: std::io::Write> Linker for DryRunLinker<W> {
     }
 }
 
-#[derive(Default)]
-pub struct OSLinker {}
+pub struct OSLinker;
 
 impl Linker for OSLinker {
     fn link(
         &mut self,
-        _source: std::path::PathBuf,
-        _destination: std::path::PathBuf,
+        _source: &std::path::Path,
+        _destination: &std::path::Path,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -65,7 +79,7 @@ pub fn copy<L: Linker + ?Sized>(
             let src = root_src.join(&file);
             let dest = root_dest.join(&file);
 
-            linker.link(src, dest)?
+            linker.link(&src, &dest)?
         }
     }
 
@@ -77,11 +91,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dry_run_link() {
+    fn verbose_noop_link() {
         let mut output = std::io::BufWriter::new(Vec::new());
-        let mut dryrunner = DryRunLinker::new(&mut output);
+        let mut dryrunner = VerboseLinker::new(&mut output, NoopLinker);
+        let source = std::path::Path::new("/from/path");
+        let destination = std::path::Path::new("/to/path");
         dryrunner
-            .link("/from/path".into(), "/to/path".into())
+            .link(source, destination)
             .expect("cannot link path");
 
         let content = String::from_utf8(output.into_inner().unwrap()).unwrap();

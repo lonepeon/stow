@@ -22,6 +22,8 @@ struct Cli {
     destination_directory: String,
     #[arg(short = 'n', help = "Do not execute the program, only print commands")]
     dry_run: bool,
+    #[arg(short = 'v', help = "Prints all commands while executing them")]
+    verbose: bool,
     #[arg(help = "All the packages to install on or remove from the system")]
     packages: Vec<String>,
 }
@@ -34,9 +36,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let stderr = std::io::stderr();
     let mut link: Box<dyn linker::Linker> = if cli.dry_run {
-        Box::new(linker::DryRunLinker::new(&stderr))
+        Box::new(linker::VerboseLinker::new(&stderr, linker::NoopLinker))
+    } else if cli.verbose {
+        Box::new(linker::VerboseLinker::new(&stderr, linker::OSLinker))
     } else {
-        Box::new(linker::OSLinker::default())
+        Box::new(linker::OSLinker)
     };
 
     linker::copy(
