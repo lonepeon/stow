@@ -1,11 +1,8 @@
 use crate::{package, path, Error, LinkingError};
 
 pub trait Linker {
-    fn link(
-        &mut self,
-        source: &std::path::Path,
-        destination: &std::path::Path,
-    ) -> Result<(), Error>;
+    fn link(&mut self, source: &path::Source, destination: &path::Destination)
+        -> Result<(), Error>;
 }
 
 pub struct Noop;
@@ -13,8 +10,8 @@ pub struct Noop;
 impl Linker for Noop {
     fn link(
         &mut self,
-        _source: &std::path::Path,
-        _destination: &std::path::Path,
+        _source: &path::Source,
+        _destination: &path::Destination,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -33,21 +30,15 @@ impl<W: std::io::Write, L: Linker> Verbose<W, L> {
 impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
     fn link(
         &mut self,
-        source: &std::path::Path,
-        destination: &std::path::Path,
+        source: &path::Source,
+        destination: &path::Destination,
     ) -> Result<(), Error> {
         self.linker.link(source, destination)?;
 
-        writeln!(
-            self.logger,
-            "ln -s {} {}",
-            source.display(),
-            destination.display()
-        )
-        .map_err(|_| {
+        writeln!(self.logger, "ln -s {} {}", source, destination).map_err(|_| {
             Error::Linking(LinkingError {
-                source: format!("{}", source.display()),
-                destination: format!("{}", destination.display()),
+                source: format!("{}", source),
+                destination: format!("{}", destination),
                 reason: "failed to print link log",
             })
         })
@@ -59,8 +50,8 @@ pub struct Filesystem;
 impl Linker for Filesystem {
     fn link(
         &mut self,
-        _source: &std::path::Path,
-        _destination: &std::path::Path,
+        _source: &path::Source,
+        _destination: &path::Destination,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -76,8 +67,10 @@ pub fn copy<L: Linker + ?Sized>(
         let package = package::Package::new(root_src, p)?;
         for file in package.read_dir()? {
             let file = file?;
-            let src = root_src.join(&file);
-            let dest = root_dest.join(&file);
+            let file_src_path = root_src.join(&file);
+            let file_dest_path = root_dest.join(&file);
+            let src = file_src_path.as_path().into();
+            let dest = file_dest_path.as_path().into();
 
             linker.link(&src, &dest)?
         }
@@ -94,10 +87,10 @@ mod tests {
     fn verbose_noop_link() {
         let mut output = std::io::BufWriter::new(Vec::new());
         let mut dryrunner = Verbose::new(&mut output, Noop);
-        let source = std::path::Path::new("/from/path");
-        let destination = std::path::Path::new("/to/path");
+        let source = "/from/path".into();
+        let destination = "/to/path".into();
         dryrunner
-            .link(source, destination)
+            .link(&source, &destination)
             .expect("cannot link path");
 
         let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
