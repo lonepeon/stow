@@ -8,9 +8,9 @@ pub trait Linker {
     ) -> Result<(), Error>;
 }
 
-pub struct NoopLinker;
+pub struct Noop;
 
-impl Linker for NoopLinker {
+impl Linker for Noop {
     fn link(
         &mut self,
         _source: &std::path::Path,
@@ -20,17 +20,17 @@ impl Linker for NoopLinker {
     }
 }
 
-pub struct VerboseLinker<W: std::io::Write, L: Linker> {
+pub struct Verbose<W: std::io::Write, L: Linker> {
     logger: W,
     linker: L,
 }
-impl<W: std::io::Write, L: Linker> VerboseLinker<W, L> {
+impl<W: std::io::Write, L: Linker> Verbose<W, L> {
     pub fn new(logger: W, linker: L) -> Self {
-        VerboseLinker { logger, linker }
+        Verbose { logger, linker }
     }
 }
 
-impl<W: std::io::Write, L: Linker> Linker for VerboseLinker<W, L> {
+impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
     fn link(
         &mut self,
         source: &std::path::Path,
@@ -54,9 +54,9 @@ impl<W: std::io::Write, L: Linker> Linker for VerboseLinker<W, L> {
     }
 }
 
-pub struct OSLinker;
+pub struct Filesystem;
 
-impl Linker for OSLinker {
+impl Linker for Filesystem {
     fn link(
         &mut self,
         _source: &std::path::Path,
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn verbose_noop_link() {
         let mut output = std::io::BufWriter::new(Vec::new());
-        let mut dryrunner = VerboseLinker::new(&mut output, NoopLinker);
+        let mut dryrunner = Verbose::new(&mut output, Noop);
         let source = std::path::Path::new("/from/path");
         let destination = std::path::Path::new("/to/path");
         dryrunner

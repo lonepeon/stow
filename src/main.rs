@@ -36,11 +36,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let stderr = std::io::stderr();
     let mut link: Box<dyn linker::Linker> = if cli.dry_run {
-        Box::new(linker::VerboseLinker::new(&stderr, linker::NoopLinker))
+        Box::new(linker::Verbose::new(&stderr, linker::Noop))
     } else if cli.verbose {
-        Box::new(linker::VerboseLinker::new(&stderr, linker::OSLinker))
+        Box::new(linker::Verbose::new(&stderr, linker::Filesystem))
     } else {
-        Box::new(linker::OSLinker)
+        Box::new(linker::Filesystem)
     };
 
     linker::copy(
