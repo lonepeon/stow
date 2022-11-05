@@ -1,51 +1,78 @@
-#[derive(Debug, PartialEq, Eq)]
-pub struct Path(String);
+#[derive(Debug, Eq, PartialEq)]
+pub struct Source<'a>(&'a std::path::Path);
 
-impl std::fmt::Display for Path {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.0)
+impl<'a> Source<'a> {
+    pub fn new(path: &'a std::path::Path) -> Self {
+        Self(path)
+    }
+
+    pub fn join(&self, folder: &str) -> std::path::PathBuf {
+        self.0.join(folder)
     }
 }
 
-impl std::str::FromStr for Path {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !std::path::Path::new(s).exists() {
-            return Err(Error(format!("path {} does not exist", s)));
-        }
-
-        Ok(Path(s.to_string()))
+impl<'a> std::convert::From<&'a str> for Source<'a> {
+    fn from(path: &'a str) -> Self {
+        Source::new(std::path::Path::new(path))
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Error(String);
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.0)
+impl<'a> std::fmt::Display for Source<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.display())
     }
 }
 
-impl std::error::Error for Error {}
+#[derive(Debug, Eq, PartialEq)]
+pub struct Destination<'a>(&'a std::path::Path);
+
+impl<'a> std::convert::From<&'a str> for Destination<'a> {
+    fn from(path: &'a str) -> Self {
+        Destination::new(std::path::Path::new(path))
+    }
+}
+
+impl<'a> std::fmt::Display for Destination<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.display())
+    }
+}
+
+impl<'a> Destination<'a> {
+    pub fn new(path: &'a std::path::Path) -> Self {
+        Self(path)
+    }
+
+    pub fn join(&self, folder: &str) -> std::path::PathBuf {
+        self.0.join(folder)
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn invalid_path() {
-        let err = "not-existing.file".parse::<Path>().unwrap_err();
-        assert_eq!(
-            Error("path not-existing.file does not exist".to_string()),
-            err
-        );
+    fn source_from() {
+        let file: Source = "/some/path".into();
+        assert_eq!(Source::new(std::path::Path::new("/some/path")), file)
     }
 
     #[test]
-    fn valid_path() {
-        let err = "src/path.rs".parse::<Path>().unwrap();
-        assert_eq!(Path("src/path.rs".to_string()), err);
+    fn join_on_source() {
+        let file = Source::new(std::path::Path::new("/some/path")).join("to-file");
+        assert_eq!(std::path::Path::new("/some/path/to-file"), file)
+    }
+
+    #[test]
+    fn destination_from() {
+        let file: Destination = "/some/path".into();
+        assert_eq!(Destination::new(std::path::Path::new("/some/path")), file)
+    }
+
+    #[test]
+    fn join_on_destination() {
+        let file = Destination::new(std::path::Path::new("/some/path")).join("to-file");
+        assert_eq!(std::path::Path::new("/some/path/to-file"), file)
     }
 }
