@@ -14,3 +14,8 @@ stow $HOME vim
 stow $HOME zsh/zshrc.mac
 stow -D $HOME emacs
 ```
+
+## Development
+
+- Setup your local environment using `make setup`
+- Run `make watch` to continuously run Clippy and the unit tests
