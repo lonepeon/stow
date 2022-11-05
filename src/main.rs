@@ -1,4 +1,5 @@
 use clap::Parser;
+use stow::linker;
 use stow::path;
 
 #[derive(Parser)]
@@ -19,6 +20,8 @@ struct Cli {
         help = "Set the target directory instead of using the HOME folder"
     )]
     destination_directory: String,
+    #[arg(short = 'n', help = "Do not execute the program, only print commands")]
+    dry_run: bool,
     #[arg(help = "All the packages to install on or remove from the system")]
     packages: Vec<String>,
 }
@@ -26,15 +29,22 @@ struct Cli {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    let source_directory = cli.source_directory.parse::<path::Path>()?;
-    let destination_directory = cli.destination_directory.parse::<path::Path>()?;
+    let source_directory: path::Source = cli.source_directory.as_str().into();
+    let destination_directory: path::Destination = cli.destination_directory.as_str().into();
 
-    println!(
-        "symlink {} packages from {} onto {}",
-        cli.packages.join(", "),
-        source_directory,
-        destination_directory
-    );
+    let stderr = std::io::stderr();
+    let mut link: Box<dyn linker::Linker> = if cli.dry_run {
+        Box::new(linker::DryRunLinker::new(&stderr))
+    } else {
+        Box::new(linker::OSLinker::default())
+    };
+
+    linker::copy(
+        link.as_mut(),
+        &source_directory,
+        &destination_directory,
+        cli.packages,
+    )?;
 
     Ok(())
 }
