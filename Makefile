@@ -9,7 +9,7 @@ setup: .git/hooks/pre-commit
 
 .PHONY: watch
 watch:
-	cargo watch --exec "clippy -- -Dwarnings" --exec test
+	cargo watch --exec "fmt --all -- --check" --exec "clippy -- -Dwarnings" --exec test
 
 .PHONY: test-unit
 test-unit:
@@ -17,4 +17,5 @@ test-unit:
 
 .PHONY: test-lint
 test-lint:
+	cargo fmt --all -- --check
 	cargo clippy -- -Dwarnings
