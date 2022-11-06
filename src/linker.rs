@@ -45,14 +45,30 @@ impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
     }
 }
 
-pub struct Filesystem;
+pub struct Filesystem<W: std::io::Write> {
+    logger: W,
+}
 
-impl Linker for Filesystem {
+impl<W: std::io::Write> Filesystem<W> {
+    pub fn new(logger: W) -> Self {
+        Self { logger }
+    }
+}
+
+impl<W: std::io::Write> Linker for Filesystem<W> {
     fn link(
         &mut self,
-        _source: &path::Source,
-        _destination: &path::Destination,
+        source: &path::Source,
+        destination: &path::Destination,
     ) -> Result<(), Error> {
+        writeln!(self.logger, "log only if overriding a file").map_err(|_| {
+            Error::Linking(LinkingError {
+                source: format!("{}", source),
+                destination: format!("{}", destination),
+                reason: "failed to print link log",
+            })
+        })?;
+
         Ok(())
     }
 }
