@@ -11,6 +11,12 @@ impl<'a> Source<'a> {
     }
 }
 
+impl<'a> std::convert::AsRef<std::path::Path> for Source<'a> {
+    fn as_ref(&self) -> &std::path::Path {
+        self.0
+    }
+}
+
 impl<'a> std::convert::From<&'a std::path::Path> for Source<'a> {
     fn from(path: &'a std::path::Path) -> Self {
         Source::new(path)
@@ -31,6 +37,12 @@ impl<'a> std::fmt::Display for Source<'a> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Destination<'a>(&'a std::path::Path);
+
+impl<'a> std::convert::AsRef<std::path::Path> for Destination<'a> {
+    fn as_ref(&self) -> &std::path::Path {
+        self.0
+    }
+}
 
 impl<'a> std::convert::From<&'a std::path::Path> for Destination<'a> {
     fn from(path: &'a std::path::Path) -> Self {
@@ -77,6 +89,12 @@ mod tests {
     }
 
     #[test]
+    fn source_to_path() {
+        let file: Source = "/some/path".into();
+        assert_eq!(std::path::Path::new("/some/path"), file.as_ref())
+    }
+
+    #[test]
     fn join_on_source() {
         let file = Source::new(std::path::Path::new("/some/path")).join("to-file");
         assert_eq!(std::path::Path::new("/some/path/to-file"), file)
@@ -85,6 +103,12 @@ mod tests {
     fn destination_from_str() {
         let file: Destination = "/some/path".into();
         assert_eq!(Destination::new(std::path::Path::new("/some/path")), file)
+    }
+
+    #[test]
+    fn destination_to_path() {
+        let file: Destination = "/some/path".into();
+        assert_eq!(std::path::Path::new("/some/path"), file.as_ref())
     }
 
     #[test]
