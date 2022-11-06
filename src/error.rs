@@ -1,11 +1,17 @@
 #[derive(Debug, PartialEq, Eq)]
-pub struct FileReadingError {
-    pub package: String,
+pub struct ReadFileError {
+    pub file: String,
     pub reason: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct LinkingError {
+pub struct DeleteFileError {
+    pub file: String,
+    pub reason: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct CreateSymlinkError {
     pub source: String,
     pub destination: String,
     pub reason: String,
@@ -20,11 +26,12 @@ pub struct CreateFolderError {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Generic(String),
-    ReadFile(FileReadingError),
+    ReadFile(ReadFileError),
     CreateFolder(CreateFolderError),
+    DeleteFile(DeleteFileError),
     ParentFolder(String),
     PackageNotFound(String),
-    CreateSymlink(LinkingError),
+    CreateSymlink(CreateSymlinkError),
 }
 
 impl std::fmt::Display for Error {
@@ -35,6 +42,9 @@ impl std::fmt::Display for Error {
             }
             Self::CreateFolder(err) => {
                 write!(f, "folder {} cannot be created: {}", err.folder, err.reason)
+            }
+            Self::DeleteFile(err) => {
+                write!(f, "file {} cannot be removed: {}", err.file, err.reason)
             }
             Self::ParentFolder(folder) => {
                 write!(f, "parent folder of {} is not a valid folder", folder)
@@ -53,7 +63,7 @@ impl std::fmt::Display for Error {
                 write!(
                     f,
                     "cannot read file or directory {}: {}",
-                    err.package, err.reason
+                    err.file, err.reason
                 )
             }
         }

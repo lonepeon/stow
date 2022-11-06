@@ -49,6 +49,12 @@ impl<'a, W: std::io::Write, L: linker::Linker + ?Sized> Command<'a, W, L> {
                     .map_err(|e| Error::Generic(format!("failed to print warning: {}", e)))?;
                 }
 
+                if self.linker.file_exists(dest)? {
+                    writeln!(self.logger, "warning: delete file {}", dest.display(),)
+                        .map_err(|e| Error::Generic(format!("failed to print warning: {}", e)))?;
+                    self.linker.delete_file(dest)?;
+                }
+
                 self.linker.create_symlink(&src.into(), &dest.into())?
             }
         }

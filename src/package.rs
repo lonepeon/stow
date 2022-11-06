@@ -1,4 +1,4 @@
-use crate::{path, Error, FileReadingError};
+use crate::{path, Error, ReadFileError};
 
 #[derive(Debug)]
 pub struct Package<'a> {
@@ -33,8 +33,8 @@ fn entry_to_filepath<'a>(
     entry: walkdir::Result<walkdir::DirEntry>,
 ) -> Result<Option<String>, Error> {
     let entry = entry.map_err(|err| {
-        Error::ReadFile(FileReadingError {
-            package: package.name.to_string(),
+        Error::ReadFile(ReadFileError {
+            file: package.name.to_string(),
             reason: err.to_string(),
         })
     })?;
@@ -47,8 +47,8 @@ fn entry_to_filepath<'a>(
         .path()
         .strip_prefix(&package.path)
         .map_err(|_| {
-            Error::ReadFile(FileReadingError {
-                package: package.name.to_string(),
+            Error::ReadFile(ReadFileError {
+                file: package.name.to_string(),
                 reason: format!(
                     "cannot strip source folder {} from file path {}",
                     package.path.display(),
@@ -59,8 +59,8 @@ fn entry_to_filepath<'a>(
         .and_then(|path| {
             path.to_str()
                 .ok_or_else(|| {
-                    Error::ReadFile(FileReadingError {
-                        package: package.name.to_string(),
+                    Error::ReadFile(ReadFileError {
+                        file: package.name.to_string(),
                         reason: format!("cannot convert path {} to string", path.display()),
                     })
                 })

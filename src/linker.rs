@@ -1,4 +1,4 @@
-use crate::{path, CreateFolderError, Error, FileReadingError, LinkingError};
+use crate::{path, CreateFolderError, CreateSymlinkError, DeleteFileError, Error, ReadFileError};
 
 pub trait Linker {
     fn create_symlink(
@@ -11,7 +11,11 @@ pub trait Linker {
 
     fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error>;
 
+    fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error>;
+
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error>;
+
+    fn delete_file(&mut self, file: &std::path::Path) -> Result<(), Error>;
 }
 
 pub struct Noop;
@@ -33,8 +37,16 @@ impl Linker for Noop {
         Ok(true)
     }
 
+    fn file_exists(&mut self, _file: &std::path::Path) -> Result<bool, Error> {
+        Ok(false)
+    }
+
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
         Ok(file.to_path_buf())
+    }
+
+    fn delete_file(&mut self, _file: &std::path::Path) -> Result<(), Error> {
+        Ok(())
     }
 }
 
@@ -54,24 +66,15 @@ impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
         source: &path::Source,
         destination: &path::Destination,
     ) -> Result<(), Error> {
-        writeln!(self.logger, "ln -s {} {}", source, destination).map_err(|e| {
-            Error::CreateSymlink(LinkingError {
-                source: format!("{}", source),
-                destination: format!("{}", destination),
-                reason: e.to_string(),
-            })
-        })?;
+        writeln!(self.logger, "ln -s {} {}", source, destination)
+            .map_err(|e| Error::Generic(format!("cannot write ln -s log: {}", e)))?;
 
         self.linker.create_symlink(source, destination)
     }
 
     fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
-        writeln!(self.logger, "mkdir -p {}", folder.display()).map_err(|e| {
-            Error::CreateFolder(CreateFolderError {
-                folder: format!("{}", folder.display()),
-                reason: e.to_string(),
-            })
-        })?;
+        writeln!(self.logger, "mkdir -p {}", folder.display())
+            .map_err(|e| Error::Generic(format!("cannot write mkdir log: {}", e)))?;
 
         self.linker.create_folder(folder)
     }
@@ -80,15 +83,22 @@ impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
         self.linker.folder_exists(folder)
     }
 
+    fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error> {
+        self.linker.file_exists(file)
+    }
+
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
-        writeln!(self.logger, "readlink {}", file.display()).map_err(|e| {
-            Error::ReadFile(FileReadingError {
-                package: file.display().to_string(),
-                reason: e.to_string(),
-            })
-        })?;
+        writeln!(self.logger, "readlink {}", file.display())
+            .map_err(|e| Error::Generic(format!("cannot write readlink log: {}", e)))?;
 
         self.linker.read_link(file)
+    }
+
+    fn delete_file(&mut self, file: &std::path::Path) -> Result<(), Error> {
+        writeln!(self.logger, "readlink {}", file.display())
+            .map_err(|e| Error::Generic(format!("cannot write rm log: {}", e)))?;
+
+        self.linker.delete_file(file)
     }
 }
 
@@ -101,9 +111,9 @@ impl Linker for Filesystem {
         destination: &path::Destination,
     ) -> Result<(), Error> {
         std::os::unix::fs::symlink(source, destination).map_err(|e| {
-            Error::CreateSymlink(LinkingError {
-                source: format!("{}", source),
-                destination: format!("{}", destination),
+            Error::CreateSymlink(CreateSymlinkError {
+                source: source.to_string(),
+                destination: destination.to_string(),
                 reason: e.to_string(),
             })
         })
@@ -112,7 +122,7 @@ impl Linker for Filesystem {
     fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
         std::fs::create_dir_all(folder).map_err(|e| {
             Error::CreateFolder(CreateFolderError {
-                folder: format!("{}", folder.display()),
+                folder: folder.display().to_string(),
                 reason: e.to_string(),
             })
         })
@@ -120,16 +130,39 @@ impl Linker for Filesystem {
 
     fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error> {
         if folder.exists() && !folder.is_dir() {
-            return Err(Error::ParentFolder(folder.display().to_string()));
+            return Err(Error::Generic(format!(
+                "folder {} exists but is not a folder",
+                folder.display()
+            )));
         }
 
         Ok(folder.exists())
     }
 
+    fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error> {
+        if file.exists() && !file.is_file() {
+            return Err(Error::Generic(format!(
+                "file {} exists but is not a file",
+                file.display(),
+            )));
+        }
+
+        Ok(file.exists())
+    }
+
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
         std::fs::read_link(file).map_err(|e| {
-            Error::ReadFile(FileReadingError {
-                package: file.display().to_string(),
+            Error::ReadFile(ReadFileError {
+                file: file.display().to_string(),
+                reason: e.to_string(),
+            })
+        })
+    }
+
+    fn delete_file(&mut self, file: &std::path::Path) -> Result<(), Error> {
+        std::fs::remove_file(file).map_err(|e| {
+            Error::DeleteFile(DeleteFileError {
+                file: file.display().to_string(),
                 reason: e.to_string(),
             })
         })
