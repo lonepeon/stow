@@ -35,6 +35,20 @@ fn parse_verbosity(arg: &str) -> Result<Verbosity, Error> {
     }
 }
 
+fn filesystem_linker<'a>(
+    verbosity: Verbosity,
+    logger: &'a std::io::Stderr,
+) -> Box<dyn linker::Linker + 'a> {
+    match verbosity {
+        Verbosity::Silent => Box::new(linker::Filesystem::new(writer::Noop)),
+        Verbosity::WarningOnly => Box::new(linker::Filesystem::new(logger)),
+        Verbosity::Verbose => Box::new(linker::Verbose::new(
+            logger,
+            linker::Filesystem::new(logger),
+        )),
+    }
+}
+
 #[derive(Parser)]
 #[command(author, version, about)]
 struct Cli {
@@ -76,17 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stderr = std::io::stderr();
     let mut link: Box<dyn linker::Linker> = if cli.dry_run {
         Box::new(linker::Verbose::new(&stderr, linker::Noop))
-    } else if cli.verbosity == Verbosity::Silent {
-        Box::new(linker::Filesystem::new(writer::Noop))
-    } else if cli.verbosity == Verbosity::WarningOnly {
-        Box::new(linker::Filesystem::new(&stderr))
-    } else if cli.verbosity == Verbosity::Verbose {
-        Box::new(linker::Verbose::new(
-            &stderr,
-            linker::Filesystem::new(&stderr),
-        ))
     } else {
-        panic!("this code should never be reached");
+        filesystem_linker(cli.verbosity, &stderr)
     };
 
     linker::copy(
