@@ -1,4 +1,5 @@
 use clap::Parser;
+use stow::command;
 use stow::linker;
 use stow::path;
 use stow::writer;
@@ -32,20 +33,6 @@ fn parse_verbosity(arg: &str) -> Result<Verbosity, Error> {
         1 => Ok(Verbosity::WarningOnly),
         2 => Ok(Verbosity::Verbose),
         _ => Err(Error),
-    }
-}
-
-fn filesystem_linker<'a>(
-    verbosity: Verbosity,
-    logger: &'a std::io::Stderr,
-) -> Box<dyn linker::Linker + 'a> {
-    match verbosity {
-        Verbosity::Silent => Box::new(linker::Filesystem::new(writer::Noop)),
-        Verbosity::WarningOnly => Box::new(linker::Filesystem::new(logger)),
-        Verbosity::Verbose => Box::new(linker::Verbose::new(
-            logger,
-            linker::Filesystem::new(logger),
-        )),
     }
 }
 
@@ -90,12 +77,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stderr = std::io::stderr();
     let mut link: Box<dyn linker::Linker> = if cli.dry_run {
         Box::new(linker::Verbose::new(&stderr, linker::Noop))
+    } else if cli.verbosity == Verbosity::Verbose {
+        Box::new(linker::Verbose::new(&stderr, linker::Filesystem))
     } else {
-        filesystem_linker(cli.verbosity, &stderr)
+        Box::new(linker::Filesystem)
     };
 
-    linker::copy(
-        link.as_mut(),
+    let command_logger: Box<dyn std::io::Write> = if cli.verbosity == Verbosity::Silent {
+        Box::new(writer::Noop)
+    } else {
+        Box::new(&stderr)
+    };
+
+    command::Command::new(command_logger, link.as_mut()).stow(
         &source_directory,
         &destination_directory,
         cli.packages,

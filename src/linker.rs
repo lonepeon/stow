@@ -1,19 +1,40 @@
-use crate::{package, path, Error, LinkingError};
+use crate::{path, CreateFolderError, Error, FileReadingError, LinkingError};
 
 pub trait Linker {
-    fn link(&mut self, source: &path::Source, destination: &path::Destination)
-        -> Result<(), Error>;
+    fn create_symlink(
+        &mut self,
+        source: &path::Source,
+        destination: &path::Destination,
+    ) -> Result<(), Error>;
+
+    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error>;
+
+    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error>;
+
+    fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error>;
 }
 
 pub struct Noop;
 
 impl Linker for Noop {
-    fn link(
+    fn create_symlink(
         &mut self,
         _source: &path::Source,
         _destination: &path::Destination,
     ) -> Result<(), Error> {
         Ok(())
+    }
+
+    fn create_folder(&mut self, _folder: &std::path::Path) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn folder_exists(&mut self, _folder: &std::path::Path) -> Result<bool, Error> {
+        Ok(true)
+    }
+
+    fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
+        Ok(file.to_path_buf())
     }
 }
 
@@ -28,71 +49,91 @@ impl<W: std::io::Write, L: Linker> Verbose<W, L> {
 }
 
 impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
-    fn link(
+    fn create_symlink(
         &mut self,
         source: &path::Source,
         destination: &path::Destination,
     ) -> Result<(), Error> {
-        self.linker.link(source, destination)?;
-
-        writeln!(self.logger, "ln -s {} {}", source, destination).map_err(|_| {
-            Error::Linking(LinkingError {
+        writeln!(self.logger, "ln -s {} {}", source, destination).map_err(|e| {
+            Error::CreateSymlink(LinkingError {
                 source: format!("{}", source),
                 destination: format!("{}", destination),
-                reason: "failed to print link log",
-            })
-        })
-    }
-}
-
-pub struct Filesystem<W: std::io::Write> {
-    logger: W,
-}
-
-impl<W: std::io::Write> Filesystem<W> {
-    pub fn new(logger: W) -> Self {
-        Self { logger }
-    }
-}
-
-impl<W: std::io::Write> Linker for Filesystem<W> {
-    fn link(
-        &mut self,
-        source: &path::Source,
-        destination: &path::Destination,
-    ) -> Result<(), Error> {
-        writeln!(self.logger, "log only if overriding a file").map_err(|_| {
-            Error::Linking(LinkingError {
-                source: format!("{}", source),
-                destination: format!("{}", destination),
-                reason: "failed to print link log",
+                reason: e.to_string(),
             })
         })?;
 
-        Ok(())
+        self.linker.create_symlink(source, destination)
+    }
+
+    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
+        writeln!(self.logger, "mkdir -p {}", folder.display()).map_err(|e| {
+            Error::CreateFolder(CreateFolderError {
+                folder: format!("{}", folder.display()),
+                reason: e.to_string(),
+            })
+        })?;
+
+        self.linker.create_folder(folder)
+    }
+
+    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error> {
+        self.linker.folder_exists(folder)
+    }
+
+    fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
+        writeln!(self.logger, "readlink {}", file.display()).map_err(|e| {
+            Error::ReadFile(FileReadingError {
+                package: file.display().to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+        self.linker.read_link(file)
     }
 }
 
-pub fn copy<L: Linker + ?Sized>(
-    linker: &mut L,
-    root_src: &path::Source,
-    root_dest: &path::Destination,
-    packages: Vec<String>,
-) -> Result<(), Error> {
-    for p in packages.iter() {
-        let package = package::Package::new(root_src, p)?;
-        for file in package.read_dir()? {
-            let file = file?;
-            let file_src_path = root_src.join(&file);
-            let file_dest_path = root_dest.join(&file);
-            let src = file_src_path.as_path().into();
-            let dest = file_dest_path.as_path().into();
+pub struct Filesystem;
 
-            linker.link(&src, &dest)?
-        }
+impl Linker for Filesystem {
+    fn create_symlink(
+        &mut self,
+        source: &path::Source,
+        destination: &path::Destination,
+    ) -> Result<(), Error> {
+        std::os::unix::fs::symlink(source, destination).map_err(|e| {
+            Error::CreateSymlink(LinkingError {
+                source: format!("{}", source),
+                destination: format!("{}", destination),
+                reason: e.to_string(),
+            })
+        })
     }
 
-    Ok(())
+    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
+        std::fs::create_dir_all(folder).map_err(|e| {
+            Error::CreateFolder(CreateFolderError {
+                folder: format!("{}", folder.display()),
+                reason: e.to_string(),
+            })
+        })
+    }
+
+    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error> {
+        if folder.exists() && !folder.is_dir() {
+            return Err(Error::ParentFolder(folder.display().to_string()));
+        }
+
+        Ok(folder.exists())
+    }
+
+    fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
+        std::fs::read_link(file).map_err(|e| {
+            Error::ReadFile(FileReadingError {
+                package: file.display().to_string(),
+                reason: e.to_string(),
+            })
+        })
+    }
 }
 
 #[cfg(test)]
@@ -106,7 +147,7 @@ mod tests {
         let source = "/from/path".into();
         let destination = "/to/path".into();
         dryrunner
-            .link(&source, &destination)
+            .create_symlink(&source, &destination)
             .expect("cannot link path");
 
         let content = String::from_utf8(output.into_inner().unwrap()).unwrap();

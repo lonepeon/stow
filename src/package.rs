@@ -33,7 +33,7 @@ fn entry_to_filepath<'a>(
     entry: walkdir::Result<walkdir::DirEntry>,
 ) -> Result<Option<String>, Error> {
     let entry = entry.map_err(|err| {
-        Error::FileReading(FileReadingError {
+        Error::ReadFile(FileReadingError {
             package: package.name.to_string(),
             reason: err.to_string(),
         })
@@ -47,7 +47,7 @@ fn entry_to_filepath<'a>(
         .path()
         .strip_prefix(&package.path)
         .map_err(|_| {
-            Error::FileReading(FileReadingError {
+            Error::ReadFile(FileReadingError {
                 package: package.name.to_string(),
                 reason: format!(
                     "cannot strip source folder {} from file path {}",
@@ -59,7 +59,7 @@ fn entry_to_filepath<'a>(
         .and_then(|path| {
             path.to_str()
                 .ok_or_else(|| {
-                    Error::FileReading(FileReadingError {
+                    Error::ReadFile(FileReadingError {
                         package: package.name.to_string(),
                         reason: format!("cannot convert path {} to string", path.display()),
                     })
