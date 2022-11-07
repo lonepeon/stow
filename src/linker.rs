@@ -18,34 +18,89 @@ pub trait Linker {
     fn delete_file(&mut self, file: &std::path::Path) -> Result<(), Error>;
 }
 
-pub struct Noop;
+#[derive(Default)]
+pub struct Noop {
+    folders: Vec<std::path::PathBuf>,
+    files: Vec<(std::path::PathBuf, std::path::PathBuf)>,
+}
 
 impl Linker for Noop {
     fn create_symlink(
         &mut self,
-        _source: &path::Source,
-        _destination: &path::Destination,
+        source: &path::Source,
+        destination: &path::Destination,
     ) -> Result<(), Error> {
+        if self.file_exists(destination.as_ref())? {
+            return Err(Error::CreateSymlink(CreateSymlinkError {
+                source: source.to_string(),
+                destination: destination.to_string(),
+                reason: "file already exists".to_string(),
+            }));
+        }
+
+        self.files.push((
+            destination.as_ref().to_path_buf(),
+            source.as_ref().to_path_buf(),
+        ));
+
         Ok(())
     }
 
-    fn create_folder(&mut self, _folder: &std::path::Path) -> Result<(), Error> {
+    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
+        if self.folder_exists(folder)? {
+            return Err(Error::CreateFolder(CreateFolderError {
+                folder: folder.display().to_string(),
+                reason: "folder already exists".to_string(),
+            }));
+        }
+
+        self.folders.push(folder.to_path_buf());
+
         Ok(())
     }
 
-    fn folder_exists(&mut self, _folder: &std::path::Path) -> Result<bool, Error> {
-        Ok(true)
+    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error> {
+        Ok(self.folders.iter().any(|f| f.as_path() == folder))
     }
 
-    fn file_exists(&mut self, _file: &std::path::Path) -> Result<bool, Error> {
-        Ok(false)
+    fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error> {
+        Ok(self.files.iter().any(|(f, _)| f.as_path() == file))
     }
 
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
-        Ok(file.to_path_buf())
+        if !self.file_exists(file)? {
+            return Err(Error::ReadFile(ReadFileError {
+                file: file.display().to_string(),
+                reason: "file does not exist".to_string(),
+            }));
+        }
+
+        let target = self
+            .files
+            .iter()
+            .find(|(f, _)| f.as_path() == file)
+            .map(|(_path, target)| target)
+            .unwrap();
+
+        Ok(target.to_path_buf())
     }
 
-    fn delete_file(&mut self, _file: &std::path::Path) -> Result<(), Error> {
+    fn delete_file(&mut self, file: &std::path::Path) -> Result<(), Error> {
+        if !self.file_exists(file)? {
+            return Err(Error::DeleteFile(DeleteFileError {
+                file: file.display().to_string(),
+                reason: "file does not exist".to_string(),
+            }));
+        }
+
+        let index = self
+            .files
+            .iter()
+            .enumerate()
+            .find(|(_index, (f, _))| f.as_path() == file)
+            .map(|(index, _file)| index)
+            .unwrap();
+        self.files.remove(index);
         Ok(())
     }
 }
@@ -95,7 +150,7 @@ impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
     }
 
     fn delete_file(&mut self, file: &std::path::Path) -> Result<(), Error> {
-        writeln!(self.logger, "readlink {}", file.display())
+        writeln!(self.logger, "rm {}", file.display())
             .map_err(|e| Error::Generic(format!("cannot write rm log: {}", e)))?;
 
         self.linker.delete_file(file)
@@ -176,7 +231,7 @@ mod tests {
     #[test]
     fn verbose_noop_link() {
         let mut output = std::io::BufWriter::new(Vec::new());
-        let mut dryrunner = Verbose::new(&mut output, Noop);
+        let mut dryrunner = Verbose::new(&mut output, Noop::default());
         let source = "/from/path".into();
         let destination = "/to/path".into();
         dryrunner
@@ -186,5 +241,87 @@ mod tests {
         let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
 
         assert_eq!("ln -s /from/path /to/path\n", content)
+    }
+
+    #[test]
+    fn verbose_create_folder() {
+        let mut output = std::io::BufWriter::new(Vec::new());
+        let mut dryrunner = Verbose::new(&mut output, Noop::default());
+        dryrunner
+            .create_folder("a/nice/path".as_ref())
+            .expect("cannot create folder");
+
+        let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
+
+        assert_eq!("mkdir -p a/nice/path\n", content)
+    }
+
+    #[test]
+    fn verbose_folder_exists() {
+        let mut output = std::io::BufWriter::new(Vec::new());
+        let mut dryrunner = Verbose::new(&mut output, Noop::default());
+        dryrunner
+            .folder_exists("a/nice/path".as_ref())
+            .expect("cannot check folder presence");
+
+        let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
+
+        assert_eq!("", content)
+    }
+
+    #[test]
+    fn verbose_file_exists() {
+        let mut output = std::io::BufWriter::new(Vec::new());
+        let mut dryrunner = Verbose::new(&mut output, Noop::default());
+        dryrunner
+            .file_exists("a/nice/path".as_ref())
+            .expect("cannot check file presence");
+
+        let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
+
+        assert_eq!("", content)
+    }
+
+    #[test]
+    fn verbose_read_link() {
+        let mut output = std::io::BufWriter::new(Vec::new());
+        let mut dryrunner = Verbose::new(&mut output, Noop::default());
+
+        let source = "/from/path".into();
+        let destination = "a/nice/path".into();
+        dryrunner
+            .create_symlink(&source, &destination)
+            .expect("cannot link path");
+
+        dryrunner
+            .read_link("a/nice/path".as_ref())
+            .expect("cannot read link");
+
+        let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
+
+        assert_eq!(
+            "ln -s /from/path a/nice/path\nreadlink a/nice/path\n",
+            content
+        )
+    }
+
+    #[test]
+    fn verbose_delete_file() {
+        let mut output = std::io::BufWriter::new(Vec::new());
+        let mut dryrunner = Verbose::new(&mut output, Noop::default());
+
+        let source = "/from/path".into();
+        let destination = "a/nice/path".into();
+        dryrunner
+            .create_symlink(&source, &destination)
+            .expect("cannot link path");
+
+        dryrunner
+            .delete_file("a/nice/path".as_ref())
+            .expect("cannot delete path");
+
+        let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
+
+        assert_eq!("ln -s /from/path a/nice/path\nrm a/nice/path\n", content)
     }
 }

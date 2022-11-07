@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let stderr = std::io::stderr();
     let mut link: Box<dyn linker::Linker> = if cli.dry_run {
-        Box::new(linker::Verbose::new(&stderr, linker::Noop))
+        Box::new(linker::Verbose::new(&stderr, linker::Noop::default()))
     } else if cli.verbosity == Verbosity::Verbose {
         Box::new(linker::Verbose::new(&stderr, linker::Filesystem))
     } else {
