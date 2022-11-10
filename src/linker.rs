@@ -226,6 +226,8 @@ impl Linker for Filesystem {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use super::*;
 
     #[test]
@@ -323,5 +325,237 @@ mod tests {
         let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
 
         assert_eq!("ln -s /from/path a/nice/path\nrm a/nice/path\n", content)
+    }
+
+    #[test]
+    fn filesystem_create_symlink() {
+        let ctx = TestWithTempDir::new("create-symlink");
+        let src = ctx.dir.join("myfile.txt");
+        let dest = ctx.dir.join("mylink.txt");
+        let src_path = src.as_path();
+        let dest_path = dest.as_path();
+        let mut file = std::fs::File::create(ctx.dir.join("myfile.txt"))
+            .expect("cannot create temporary file");
+        file.write_all(b"some data")
+            .expect("cannot write data to file");
+
+        Filesystem
+            .create_symlink(&src_path.into(), &dest_path.into())
+            .expect("cannot create symlink");
+
+        let link_target = std::fs::read_link(&dest).expect("cannot read symlink");
+
+        assert_eq!(src_path, link_target)
+    }
+
+    #[test]
+    fn filesystem_create_symlink_no_source() {
+        let src_path = std::path::Path::new("a/non/existing/file");
+        let dest_path = std::path::Path::new("a/non/existing/link");
+        let err = Filesystem
+            .create_symlink(&src_path.into(), &dest_path.into())
+            .unwrap_err();
+        assert_eq!(
+            Error::CreateSymlink(CreateSymlinkError {
+                source: "a/non/existing/file".to_string(),
+                destination: "a/non/existing/link".to_string(),
+                reason: "No such file or directory (os error 2)".to_string(),
+            }),
+            err
+        )
+    }
+
+    #[test]
+    fn filesystem_create_folder() {
+        let ctx = TestWithTempDir::new("create-folder");
+        let src = ctx.dir.join("my-folder");
+        let src_path = src.as_path();
+
+        assert!(!src_path.exists(), "folder shouldn't exist");
+
+        Filesystem
+            .create_folder(&src_path)
+            .expect("cannot create folder");
+
+        assert!(src_path.exists(), "folder should exist");
+    }
+
+    #[test]
+    fn filesystem_folder_exists() {
+        let ctx = TestWithTempDir::new("folder-exists");
+
+        let exists = Filesystem
+            .folder_exists(&ctx.dir)
+            .expect("cannot check folder presence");
+
+        assert!(exists, "folder should exist");
+    }
+
+    #[test]
+    fn filesystem_folder_exists_do_no_exist() {
+        let ctx = TestWithTempDir::new("folder-exists");
+        let src_path = ctx.dir.join("myfolder");
+
+        let exists = Filesystem
+            .folder_exists(&src_path)
+            .expect("cannot check folder presence");
+
+        assert!(!exists, "folder shouldn't exist")
+    }
+
+    #[test]
+    fn filesystem_folder_exists_not_a_directory() {
+        let ctx = TestWithTempDir::new("folder-exists");
+        let src_path = ctx.dir.join("myfile.txt");
+        std::fs::File::create(&src_path).expect("cannot create temporary file");
+
+        let err = Filesystem.folder_exists(&src_path).unwrap_err();
+
+        assert_eq!(
+            Error::Generic(format!(
+                "folder {} exists but is not a folder",
+                src_path.display()
+            )),
+            err
+        )
+    }
+
+    #[test]
+    fn filesystem_file_exists() {
+        let ctx = TestWithTempDir::new("file-exists");
+        let src = ctx.dir.join("my-file.txt");
+        let src_path = src.as_path();
+        std::fs::File::create(&src_path).expect("cannot create temporary file");
+
+        let exists = Filesystem
+            .file_exists(&src_path)
+            .expect("cannot check file presence");
+
+        assert!(exists, "file should exist");
+    }
+
+    #[test]
+    fn filesystem_file_exists_do_not_exist() {
+        let ctx = TestWithTempDir::new("file-exists");
+        let src = ctx.dir.join("my-file.txt");
+        let src_path = src.as_path();
+
+        let exists = Filesystem
+            .file_exists(&src_path)
+            .expect("cannot check file presence");
+
+        assert!(!exists, "file shouldn't exist");
+    }
+
+    #[test]
+    fn filesystem_file_exists_not_file() {
+        let ctx = TestWithTempDir::new("file-exists");
+        let src = ctx.dir.join("my-folder");
+        let src_path = src.as_path();
+        std::fs::create_dir(&src).expect("cannot create temporary folder");
+
+        let err = Filesystem.file_exists(&src_path).unwrap_err();
+
+        assert_eq!(
+            Error::Generic(format!(
+                "file {} exists but is not a file",
+                src_path.display()
+            )),
+            err
+        )
+    }
+
+    #[test]
+    fn filesystem_read_link() {
+        let ctx = TestWithTempDir::new("read-link");
+        let src = ctx.dir.join("myfile.txt");
+        let dest = ctx.dir.join("mylink.txt");
+        let src_path = src.as_path();
+        let dest_path = dest.as_path();
+        let mut file = std::fs::File::create(ctx.dir.join("myfile.txt"))
+            .expect("cannot create temporary file");
+        file.write_all(b"some data")
+            .expect("cannot write data to file");
+        std::os::unix::fs::symlink(&src, &dest).expect("cannot create symlink");
+
+        let link_target = Filesystem
+            .read_link(&dest_path)
+            .expect("cannot read symlink");
+
+        assert_eq!(src_path, link_target)
+    }
+
+    #[test]
+    fn filesystem_read_link_do_not_exist() {
+        let ctx = TestWithTempDir::new("read-link");
+        let dest = ctx.dir.join("mylink.txt");
+        let dest_path = dest.as_path();
+
+        let err = Filesystem.read_link(&dest_path).unwrap_err();
+
+        assert_eq!(
+            Error::ReadFile(ReadFileError {
+                file: dest_path.display().to_string(),
+                reason: "No such file or directory (os error 2)".to_string(),
+            }),
+            err
+        )
+    }
+
+    #[test]
+    fn filesystem_delete_file() {
+        let ctx = TestWithTempDir::new("delete-file");
+        let src = ctx.dir.join("my-file.txt");
+        let src_path = src.as_path();
+        std::fs::File::create(&src_path).expect("cannot create temporary file");
+
+        assert!(src_path.exists(), "file should exist");
+        Filesystem
+            .delete_file(&src_path)
+            .expect("cannot delete file");
+        assert!(!src_path.exists(), "file shouldn't exist");
+    }
+
+    #[test]
+    fn filesystem_delete_file_do_not_exist() {
+        let ctx = TestWithTempDir::new("delete-file");
+        let src = ctx.dir.join("my-file.txt");
+        let src_path = src.as_path();
+
+        let err = Filesystem.delete_file(&src_path).unwrap_err();
+
+        assert_eq!(
+            Error::DeleteFile(DeleteFileError {
+                file: src_path.display().to_string(),
+                reason: "No such file or directory (os error 2)".to_string(),
+            }),
+            err
+        )
+    }
+
+    struct TestWithTempDir {
+        dir: std::path::PathBuf,
+    }
+
+    impl TestWithTempDir {
+        pub fn new(basename: &str) -> Self {
+            let mut tmpdir = std::env::temp_dir();
+            tmpdir.push(format!("{}-{}", basename, uuid::Uuid::new_v4().to_string()));
+            std::fs::create_dir(&tmpdir)
+                .expect(format!("cannot create temporary directory {}", tmpdir.display()).as_str());
+            Self { dir: tmpdir }
+        }
+    }
+
+    impl Drop for TestWithTempDir {
+        fn drop(&mut self) {
+            if let Err(err) = std::fs::remove_dir_all(&self.dir) {
+                eprintln!(
+                    "cannot cleanup temporary directory {}: {}",
+                    self.dir.display(),
+                    err
+                );
+            }
+        }
     }
 }
