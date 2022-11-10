@@ -62,3 +62,54 @@ impl<'a, W: std::io::Write, L: linker::Linker + ?Sized> Command<'a, W, L> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linker;
+
+    #[test]
+    fn stow_packages() {
+        let mut commands_output = std::io::BufWriter::new(Vec::new());
+        let mut warnings_output = std::io::BufWriter::new(Vec::new());
+        let mut linker = Box::new(linker::Verbose::new(
+            &mut commands_output,
+            linker::Noop::default(),
+        ));
+
+        let src: path::Source = "golden-files".into();
+        let dest: path::Destination = "/home/jdoe".into();
+
+        Command::new(&mut warnings_output, linker.as_mut())
+            .stow(
+                &src,
+                &dest,
+                vec!["package-1".to_string(), "package-2".to_string()],
+            )
+            .expect("shouldn't fail");
+
+        let output = String::from_utf8(commands_output.into_inner().unwrap()).unwrap();
+        let warning = String::from_utf8(warnings_output.into_inner().unwrap()).unwrap();
+
+        assert_eq!(
+            vec![
+                "mkdir -p /home/jdoe",
+                "readlink /home/jdoe/file-1",
+                "ln -s golden-files/package-1/file-1 /home/jdoe/file-1",
+                "readlink /home/jdoe/file-2",
+                "ln -s golden-files/package-1/file-2 /home/jdoe/file-2",
+                "mkdir -p /home/jdoe/subfolder",
+                "readlink /home/jdoe/subfolder/file-2",
+                "ln -s golden-files/package-2/subfolder/file-2 /home/jdoe/subfolder/file-2",
+                "readlink /home/jdoe/file-1",
+                "rm /home/jdoe/file-1",
+                "ln -s golden-files/package-2/file-1 /home/jdoe/file-1",
+            ],
+            output.trim().split('\n').collect::<Vec<&str>>(),
+        );
+        assert_eq!(vec![
+            "warning: override symlink /home/jdoe/file-1 from golden-files/package-1/file-1 to golden-files/package-2/file-1",
+            "warning: delete file /home/jdoe/file-1",
+        ], warning.trim().split('\n').collect::<Vec<&str>>());
+    }
+}
