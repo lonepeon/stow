@@ -15,10 +15,19 @@ impl<'a> Package<'a> {
             .ok_or_else(|| Error::PackageNotFound(name.to_string()))
     }
 
-    pub fn read_dir(&self) -> Result<PackageIterator, Error> {
+    pub fn read_dirs(&self) -> Result<PackageIterator, Error> {
         Ok(PackageIterator {
             package: self,
             readdir: walkdir::WalkDir::new(&self.path).into_iter(),
+            should_keep: |p| p.is_dir(),
+        })
+    }
+
+    pub fn read_files(&self) -> Result<PackageIterator, Error> {
+        Ok(PackageIterator {
+            package: self,
+            readdir: walkdir::WalkDir::new(&self.path).into_iter(),
+            should_keep: |p| !p.is_dir(),
         })
     }
 }
@@ -26,11 +35,13 @@ impl<'a> Package<'a> {
 pub struct PackageIterator<'a> {
     package: &'a Package<'a>,
     readdir: walkdir::IntoIter,
+    should_keep: fn(&std::fs::FileType) -> bool,
 }
 
 fn entry_to_filepath<'a>(
     package: &'a Package<'a>,
     entry: walkdir::Result<walkdir::DirEntry>,
+    should_keep: fn(&std::fs::FileType) -> bool,
 ) -> Result<Option<String>, Error> {
     let entry = entry.map_err(|err| {
         Error::ReadFile(ReadFileError {
@@ -39,7 +50,7 @@ fn entry_to_filepath<'a>(
         })
     })?;
 
-    if entry.file_type().is_dir() {
+    if !should_keep(&entry.file_type()) {
         return Ok(None);
     }
 
@@ -74,7 +85,7 @@ impl<'a> Iterator for PackageIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let mut entry = self.readdir.next()?;
         loop {
-            match entry_to_filepath(self.package, entry) {
+            match entry_to_filepath(self.package, entry, self.should_keep) {
                 Ok(None) => {
                     entry = self.readdir.next()?;
                 }
@@ -107,7 +118,7 @@ mod tests {
         let package =
             Package::new(&"./golden-files".into(), "package-1").expect("package should exist");
         let files: Vec<String> = package
-            .read_dir()
+            .read_files()
             .expect("should create a readdir iterator")
             .collect::<Result<Vec<String>, Error>>()
             .expect("should collect all files");

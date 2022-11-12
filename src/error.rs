@@ -18,8 +18,8 @@ pub struct CreateSymlinkError {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct CreateFolderError {
-    pub folder: String,
+pub struct CreateDirectoryError {
+    pub directory: String,
     pub reason: String,
 }
 
@@ -27,9 +27,9 @@ pub struct CreateFolderError {
 pub enum Error {
     Generic(String),
     ReadFile(ReadFileError),
-    CreateFolder(CreateFolderError),
+    CreateDirectory(CreateDirectoryError),
     DeleteFile(DeleteFileError),
-    ParentFolder(String),
+    ParentDirectory(String),
     PackageNotFound(String),
     CreateSymlink(CreateSymlinkError),
 }
@@ -40,14 +40,22 @@ impl std::fmt::Display for Error {
             Self::Generic(msg) => {
                 write!(f, "{}", msg)
             }
-            Self::CreateFolder(err) => {
-                write!(f, "folder {} cannot be created: {}", err.folder, err.reason)
+            Self::CreateDirectory(err) => {
+                write!(
+                    f,
+                    "directory {} cannot be created: {}",
+                    err.directory, err.reason
+                )
             }
             Self::DeleteFile(err) => {
                 write!(f, "file {} cannot be removed: {}", err.file, err.reason)
             }
-            Self::ParentFolder(folder) => {
-                write!(f, "parent folder of {} is not a valid folder", folder)
+            Self::ParentDirectory(directory) => {
+                write!(
+                    f,
+                    "parent directory of {} is not a valid directory",
+                    directory
+                )
             }
             Self::PackageNotFound(package) => {
                 write!(f, "package {} does not exist", package)

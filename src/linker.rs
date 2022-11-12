@@ -1,17 +1,28 @@
-use crate::{path, CreateFolderError, CreateSymlinkError, DeleteFileError, Error, ReadFileError};
+use crate::{
+    path, CreateDirectoryError, CreateSymlinkError, DeleteFileError, Error, ReadFileError,
+};
 
 pub trait Linker {
+    fn canonicalize(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error>;
+
     fn create_symlink(
         &mut self,
         source: &path::Source,
         destination: &path::Destination,
     ) -> Result<(), Error>;
 
-    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error>;
+    fn create_directory(&mut self, directory: &std::path::Path) -> Result<(), Error>;
 
-    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error>;
+    fn directory_exists(&mut self, directory: &std::path::Path) -> Result<bool, Error>;
 
     fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error>;
+
+    fn is_symlink(&mut self, file: &std::path::Path) -> bool;
+
+    fn list_symlinks(
+        &mut self,
+        directory: &std::path::Path,
+    ) -> Result<Vec<std::path::PathBuf>, Error>;
 
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error>;
 
@@ -20,11 +31,15 @@ pub trait Linker {
 
 #[derive(Default)]
 pub struct Noop {
-    folders: Vec<std::path::PathBuf>,
-    files: Vec<(std::path::PathBuf, std::path::PathBuf)>,
+    pub directories: Vec<std::path::PathBuf>,
+    pub files: Vec<(std::path::PathBuf, std::path::PathBuf)>,
 }
 
 impl Linker for Noop {
+    fn canonicalize(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
+        Ok(file.to_path_buf())
+    }
+
     fn create_symlink(
         &mut self,
         source: &path::Source,
@@ -46,25 +61,43 @@ impl Linker for Noop {
         Ok(())
     }
 
-    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
-        if self.folder_exists(folder)? {
-            return Err(Error::CreateFolder(CreateFolderError {
-                folder: folder.display().to_string(),
-                reason: "folder already exists".to_string(),
+    fn create_directory(&mut self, directory: &std::path::Path) -> Result<(), Error> {
+        if self.directory_exists(directory)? {
+            return Err(Error::CreateDirectory(CreateDirectoryError {
+                directory: directory.display().to_string(),
+                reason: "directory already exists".to_string(),
             }));
         }
 
-        self.folders.push(folder.to_path_buf());
+        self.directories.push(directory.to_path_buf());
 
         Ok(())
     }
 
-    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error> {
-        Ok(self.folders.iter().any(|f| f.as_path() == folder))
+    fn directory_exists(&mut self, directory: &std::path::Path) -> Result<bool, Error> {
+        Ok(self.directories.iter().any(|f| f.as_path() == directory))
     }
 
     fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error> {
         Ok(self.files.iter().any(|(f, _)| f.as_path() == file))
+    }
+
+    fn is_symlink(&mut self, file: &std::path::Path) -> bool {
+        self.files.iter().any(|(f, _)| f.as_path() == file)
+    }
+
+    fn list_symlinks(
+        &mut self,
+        directory: &std::path::Path,
+    ) -> Result<Vec<std::path::PathBuf>, Error> {
+        let symlinks = self
+            .files
+            .iter()
+            .filter_map(|(file, _)| file.parent().map(|p| p == directory).and(Some(file)))
+            .map(|p| p.to_path_buf())
+            .collect::<Vec<std::path::PathBuf>>();
+
+        Ok(symlinks)
     }
 
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
@@ -116,6 +149,10 @@ impl<W: std::io::Write, L: Linker> Verbose<W, L> {
 }
 
 impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
+    fn canonicalize(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
+        self.linker.canonicalize(file)
+    }
+
     fn create_symlink(
         &mut self,
         source: &path::Source,
@@ -127,19 +164,30 @@ impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
         self.linker.create_symlink(source, destination)
     }
 
-    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
-        writeln!(self.logger, "mkdir -p {}", folder.display())
+    fn create_directory(&mut self, directory: &std::path::Path) -> Result<(), Error> {
+        writeln!(self.logger, "mkdir -p {}", directory.display())
             .map_err(|e| Error::Generic(format!("cannot write mkdir log: {}", e)))?;
 
-        self.linker.create_folder(folder)
+        self.linker.create_directory(directory)
     }
 
-    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error> {
-        self.linker.folder_exists(folder)
+    fn directory_exists(&mut self, directory: &std::path::Path) -> Result<bool, Error> {
+        self.linker.directory_exists(directory)
     }
 
     fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error> {
         self.linker.file_exists(file)
+    }
+
+    fn is_symlink(&mut self, file: &std::path::Path) -> bool {
+        self.linker.is_symlink(file)
+    }
+
+    fn list_symlinks(
+        &mut self,
+        directory: &std::path::Path,
+    ) -> Result<Vec<std::path::PathBuf>, Error> {
+        self.linker.list_symlinks(directory)
     }
 
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
@@ -160,6 +208,11 @@ impl<W: std::io::Write, L: Linker> Linker for Verbose<W, L> {
 pub struct Filesystem;
 
 impl Linker for Filesystem {
+    fn canonicalize(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
+        file.canonicalize()
+            .map_err(|e| Error::Generic(format!("cannot cannonicalize {}: {}", file.display(), e)))
+    }
+
     fn create_symlink(
         &mut self,
         source: &path::Source,
@@ -174,24 +227,24 @@ impl Linker for Filesystem {
         })
     }
 
-    fn create_folder(&mut self, folder: &std::path::Path) -> Result<(), Error> {
-        std::fs::create_dir_all(folder).map_err(|e| {
-            Error::CreateFolder(CreateFolderError {
-                folder: folder.display().to_string(),
+    fn create_directory(&mut self, directory: &std::path::Path) -> Result<(), Error> {
+        std::fs::create_dir_all(directory).map_err(|e| {
+            Error::CreateDirectory(CreateDirectoryError {
+                directory: directory.display().to_string(),
                 reason: e.to_string(),
             })
         })
     }
 
-    fn folder_exists(&mut self, folder: &std::path::Path) -> Result<bool, Error> {
-        if folder.exists() && !folder.is_dir() {
+    fn directory_exists(&mut self, directory: &std::path::Path) -> Result<bool, Error> {
+        if directory.exists() && !directory.is_dir() {
             return Err(Error::Generic(format!(
-                "folder {} exists but is not a folder",
-                folder.display()
+                "directory {} exists but is not a directory",
+                directory.display()
             )));
         }
 
-        Ok(folder.exists())
+        Ok(directory.exists())
     }
 
     fn file_exists(&mut self, file: &std::path::Path) -> Result<bool, Error> {
@@ -203,6 +256,22 @@ impl Linker for Filesystem {
         }
 
         Ok(file.exists())
+    }
+
+    fn is_symlink(&mut self, file: &std::path::Path) -> bool {
+        file.is_symlink()
+    }
+
+    fn list_symlinks(
+        &mut self,
+        directory: &std::path::Path,
+    ) -> Result<Vec<std::path::PathBuf>, Error> {
+        let symlinks = std::fs::read_dir(directory)
+            .map_err(|e| Error::Generic(e.to_string()))?
+            .filter_map(|dir| dir.ok().map(|dir| dir.path()))
+            .filter(|p| p.is_symlink())
+            .collect::<Vec<std::path::PathBuf>>();
+        Ok(symlinks)
     }
 
     fn read_link(&mut self, file: &std::path::Path) -> Result<std::path::PathBuf, Error> {
@@ -246,12 +315,12 @@ mod tests {
     }
 
     #[test]
-    fn verbose_create_folder() {
+    fn verbose_create_directory() {
         let mut output = std::io::BufWriter::new(Vec::new());
         let mut dryrunner = Verbose::new(&mut output, Noop::default());
         dryrunner
-            .create_folder("a/nice/path".as_ref())
-            .expect("cannot create folder");
+            .create_directory("a/nice/path".as_ref())
+            .expect("cannot create directory");
 
         let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
 
@@ -259,12 +328,12 @@ mod tests {
     }
 
     #[test]
-    fn verbose_folder_exists() {
+    fn verbose_directory_exists() {
         let mut output = std::io::BufWriter::new(Vec::new());
         let mut dryrunner = Verbose::new(&mut output, Noop::default());
         dryrunner
-            .folder_exists("a/nice/path".as_ref())
-            .expect("cannot check folder presence");
+            .directory_exists("a/nice/path".as_ref())
+            .expect("cannot check directory presence");
 
         let content = String::from_utf8(output.into_inner().unwrap()).unwrap();
 
@@ -366,54 +435,54 @@ mod tests {
     }
 
     #[test]
-    fn filesystem_create_folder() {
-        let ctx = TestWithTempDir::new("create-folder");
-        let src = ctx.dir.join("my-folder");
+    fn filesystem_create_directory() {
+        let ctx = TestWithTempDir::new("create-directory");
+        let src = ctx.dir.join("my-directory");
         let src_path = src.as_path();
 
-        assert!(!src_path.exists(), "folder shouldn't exist");
+        assert!(!src_path.exists(), "directory shouldn't exist");
 
         Filesystem
-            .create_folder(&src_path)
-            .expect("cannot create folder");
+            .create_directory(&src_path)
+            .expect("cannot create directory");
 
-        assert!(src_path.exists(), "folder should exist");
+        assert!(src_path.exists(), "directory should exist");
     }
 
     #[test]
-    fn filesystem_folder_exists() {
-        let ctx = TestWithTempDir::new("folder-exists");
+    fn filesystem_directory_exists() {
+        let ctx = TestWithTempDir::new("directory-exists");
 
         let exists = Filesystem
-            .folder_exists(&ctx.dir)
-            .expect("cannot check folder presence");
+            .directory_exists(&ctx.dir)
+            .expect("cannot check directory presence");
 
-        assert!(exists, "folder should exist");
+        assert!(exists, "directory should exist");
     }
 
     #[test]
-    fn filesystem_folder_exists_do_no_exist() {
-        let ctx = TestWithTempDir::new("folder-exists");
-        let src_path = ctx.dir.join("myfolder");
+    fn filesystem_directory_exists_do_no_exist() {
+        let ctx = TestWithTempDir::new("directory-exists");
+        let src_path = ctx.dir.join("mydirectory");
 
         let exists = Filesystem
-            .folder_exists(&src_path)
-            .expect("cannot check folder presence");
+            .directory_exists(&src_path)
+            .expect("cannot check directory presence");
 
-        assert!(!exists, "folder shouldn't exist")
+        assert!(!exists, "directory shouldn't exist")
     }
 
     #[test]
-    fn filesystem_folder_exists_not_a_directory() {
-        let ctx = TestWithTempDir::new("folder-exists");
+    fn filesystem_directory_exists_not_a_directory() {
+        let ctx = TestWithTempDir::new("directory-exists");
         let src_path = ctx.dir.join("myfile.txt");
         std::fs::File::create(&src_path).expect("cannot create temporary file");
 
-        let err = Filesystem.folder_exists(&src_path).unwrap_err();
+        let err = Filesystem.directory_exists(&src_path).unwrap_err();
 
         assert_eq!(
             Error::Generic(format!(
-                "folder {} exists but is not a folder",
+                "directory {} exists but is not a directory",
                 src_path.display()
             )),
             err
@@ -450,9 +519,9 @@ mod tests {
     #[test]
     fn filesystem_file_exists_not_file() {
         let ctx = TestWithTempDir::new("file-exists");
-        let src = ctx.dir.join("my-folder");
+        let src = ctx.dir.join("my-directory");
         let src_path = src.as_path();
-        std::fs::create_dir(&src).expect("cannot create temporary folder");
+        std::fs::create_dir(&src).expect("cannot create temporary directory");
 
         let err = Filesystem.file_exists(&src_path).unwrap_err();
 
