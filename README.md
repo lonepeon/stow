@@ -1,7 +1,9 @@
+[![codecov](https://codecov.io/gh/lonepeon/stow/branch/main/graph/badge.svg?token=HC7WSVDRO2)](https://codecov.io/gh/lonepeon/stow)
+
 # Stow
 
 Inspired from GNU stow, the goal of this utility is to be able to symlink
-packages in target folders. 
+packages in target folders.
 
 I used to have a `dotup` script which would copy my whole environment but this
 solution is not flexible enough now I have to work with different computers:
@@ -37,7 +39,7 @@ Arguments:
 Options:
   -D
           Tries to remove all the symlinks belonging to the targeted packages.
-          
+
           For each package, gather all the directories containing configuration. In the
           targeted directory, remove all symlinks stored in directories named after the
           directories collected in the previous step, if they target the package.
@@ -46,7 +48,7 @@ Options:
           This is the directory where packages can be found.
           Set the stow directory instead of using the STOW_DIR environment variable or the
           current directory.
-          
+
           [env: STOW_DIR=/home/kevin/Workspaces/lonepeon/dotfiles]
           [default: .]
 
@@ -54,7 +56,7 @@ Options:
           Target is the root directory where the content of the packages will be symlinked
           to. If a directory required by a package doesn't exist, it will be created
           automatically.
-          
+
           [env: HOME=/home/kevin]
 
   -n
@@ -64,7 +66,7 @@ Options:
           0: do not print anything to STDERR
           1: print only when the program will override a file or a symlink
           2: print all commands the program will execute to STDERR
-          
+
           [default: 1]
 
   -h, --help
