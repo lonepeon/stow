@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/lonepeon/stow/branch/main/graph/badge.svg?token=HC7WSVDRO2)](https://codecov.io/gh/lonepeon/stow)
+
 # Stow
 
 Inspired from GNU stow, the goal of this utility is to be able to symlink

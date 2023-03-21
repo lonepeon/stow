@@ -26,7 +26,9 @@ impl<'a> Package<'a> {
     pub fn read_files(&self) -> Result<PackageIterator, Error> {
         Ok(PackageIterator {
             package: self,
-            readdir: walkdir::WalkDir::new(&self.path).into_iter(),
+            readdir: walkdir::WalkDir::new(&self.path)
+                .sort_by_file_name()
+                .into_iter(),
             should_keep: |p| !p.is_dir(),
         })
     }
@@ -122,6 +124,7 @@ mod tests {
             .expect("should create a readdir iterator")
             .collect::<Result<Vec<String>, Error>>()
             .expect("should collect all files");
+
         assert_eq!(2, files.len(), "unexpected number of files in folder");
         assert_eq!("file-1".to_string(), files[0]);
         assert_eq!("file-2".to_string(), files[1]);
