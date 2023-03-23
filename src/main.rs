@@ -74,7 +74,7 @@ struct Cli {
     packages: Vec<String>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), stow::Error> {
     let cli = Cli::parse();
 
     let source_directory: path::Source = cli.source_directory.as_str().into();
