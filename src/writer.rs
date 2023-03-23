@@ -20,4 +20,9 @@ mod tests {
         let size = Noop.write("hello!".as_bytes()).unwrap();
         assert_eq!(6, size)
     }
+
+    #[test]
+    fn flush() {
+        Noop.flush().unwrap();
+    }
 }

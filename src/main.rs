@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cmd = command::Command::new(command_logger, link.as_mut());
     if cli.delete {
-        cmd.unstow(&source_directory, &destination_directory, cli.packages)?
+        cmd.unstow(&source_directory, &destination_directory, cli.packages)?;
     } else {
         cmd.stow(&source_directory, &destination_directory, cli.packages)?;
     }
